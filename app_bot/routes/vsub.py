@@ -118,8 +118,8 @@ class VsubCommand(commands.Cog):
 
             # Hạ tầng & Mô hình tính toán
             arch_info = (
-                "`STT Engine:` **Whisper Large-v3**\n"
-                "`LLM Engine:` **Google Gemini 3.1 Flash-Lite**\n"
+                "`STT Engine:` **OpenAI Whisper Large-v3**\n"
+                "`LLM Engine:` **Google Gemini 3.5 Flash-Lite**\n"
                 "`Node Cluster:` **Ryzen 9 7900**"
             )
             success_embed.add_field(name="Computational Stack", value=arch_info, inline=False)

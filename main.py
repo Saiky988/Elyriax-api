@@ -23,6 +23,8 @@ from app.api.v1.render import router as render_router
 from app.services.job_manager import job_manager
 from app_bot.app import bot
 
+from app.api.v1.downloader import router as downloader_router
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("Main")
 
@@ -73,6 +75,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(downloader_router, prefix="/api/v1/downloader", tags=["Downloader"])
 app.include_router(transcribe_router, prefix="/api/v1", tags=["Transcription"])
 app.include_router(translate_router, prefix="/api/v1", tags=["Translation"])
 app.include_router(subtitle_router, prefix="/api/v1", tags=["Subtitles"])

@@ -21,6 +21,7 @@ from app.api.v1.translate import router as translate_router
 from app.api.v1.subtitle import router as subtitle_router
 from app.api.v1.render import router as render_router
 from app.services.job_manager import job_manager
+from app_bot.app import bot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("Main")
@@ -39,8 +40,22 @@ async def lifespan(app: FastAPI):
                 logger.error(f"Error in cleanup worker: {e}")
 
     cleanup_task = asyncio.create_task(cleanup_loop())
+
+    bot_token = os.getenv("DISCORD_BOT_TOKEN")
+    bot_task = None
+    if bot_token:
+        bot_task = asyncio.create_task(bot.start(bot_token))
+    else:
+        logger.warning("TOKEN not found in environment.")
+
     yield
+
+    # Dọn dẹp khi tắt tiến trình
     cleanup_task.cancel()
+    if bot_task:
+        logger.info("Shutting down Discord Bot...")
+        await bot.close()
+        bot_task.cancel()
 
 
 app = FastAPI(
@@ -49,7 +64,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Cấu hình CORS để Frontend kết nối an toàn
+# Cấu hình CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -64,5 +79,5 @@ app.include_router(subtitle_router, prefix="/api/v1", tags=["Subtitles"])
 app.include_router(render_router, prefix="/api/v1", tags=["Rendering"])
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "25405"))
+    port = int(os.getenv("PORT"))
     uvicorn.run(app, host="0.0.0.0", port=port)

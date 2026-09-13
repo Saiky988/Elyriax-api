@@ -1,0 +1,9 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+groq>=0.5.0
+pydantic>=2.6.0
+python-dotenv>=1.0.1
+static-ffmpeg>=2.5
+google-genai>=0.1.1
+aiofiles>=25.1.0

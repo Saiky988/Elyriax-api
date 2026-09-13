@@ -7,3 +7,4 @@ python-dotenv>=1.0.1
 static-ffmpeg>=2.5
 google-genai>=0.1.1
 aiofiles>=25.1.0
+yt-dlp>=2026.8.19

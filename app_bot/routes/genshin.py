@@ -6,7 +6,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from app.core.config import settings
 from app.core.database import execute, fetch_all, fetch_one, get_connection
+from app.services.auth_service import create_default_user_settings
 from app.services.genshin.account_service import (
     add_account,
     get_accounts,
@@ -63,20 +65,30 @@ async def get_or_create_discord_user(discord_user: discord.User | discord.Member
         async with conn.cursor() as cur:
             try:
                 await cur.execute(
-                    "INSERT INTO users (username, display_name, avatar, role, status) VALUES (%s, %s, %s, 'user', 'active')",
-                    (username, display_name, avatar_url),
+                    "INSERT INTO users (username, avatar, status) VALUES (%s, %s, 'active')",
+                    (username, avatar_url),
                 )
                 user_id = cur.lastrowid
 
                 await cur.execute(
-                    "INSERT INTO user_oauth_accounts (user_id, provider, provider_user_id, email, username) VALUES (%s, 'discord', %s, NULL, %s)",
-                    (user_id, str(discord_user.id), discord_user.name),
+                    """
+                    INSERT INTO user_oauth_accounts 
+                    (user_id, provider, provider_user_id, provider_name, provider_avatar) 
+                    VALUES (%s, 'discord', %s, %s, %s)
+                    """,
+                    (user_id, str(discord_user.id), display_name, avatar_url),
                 )
                 await conn.commit()
-                return user_id
             except Exception:
                 await conn.rollback()
                 raise
+
+    try:
+        await create_default_user_settings(user_id)
+    except Exception as e:
+        logger.warning(f"Could not create default settings for user {user_id}: {e}")
+
+    return user_id
 
 
 async def get_user_genshin_payload(discord_user: discord.User | discord.Member, account_id: Optional[int] = None) -> Dict[str, Any]:
@@ -202,6 +214,32 @@ class GenshinLinkModal(discord.ui.Modal, title="Liên Kết HoYoLAB Genshin Impa
         except Exception as e:
             logger.error(f"Genshin link modal error: {e}")
             await interaction.followup.send(f"❌ **Lỗi liên kết:** {str(e)}", ephemeral=True)
+
+
+class LinkOptionsView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        oauth_url = f"{settings.BASE_URL}/v1/auth/login/discord"
+        self.add_item(
+            discord.ui.Button(
+                label="Đồng Bộ Qua Web Elyriax",
+                url=oauth_url,
+                style=discord.ButtonStyle.link,
+                emoji="🌐",
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="Trang Chủ Elyriax",
+                url=settings.FRONTEND_URL,
+                style=discord.ButtonStyle.link,
+                emoji="🏠",
+            )
+        )
+
+    @discord.ui.button(label="Nhập Cookie Trực Tiếp", style=discord.ButtonStyle.primary, emoji="📝")
+    async def enter_cookie_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(GenshinLinkModal())
 
 
 class GenshinCog(commands.Cog, name="Genshin Impact"):
@@ -573,9 +611,33 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
     # ----------------------------------------------------
     # 7. /genshin link
     # ----------------------------------------------------
-    @genshin_group.command(name="link", description="Liên kết tài khoản Genshin Impact bảo mật qua Modal Discord")
+    @genshin_group.command(name="link", description="Liên kết tài khoản Genshin Impact & đồng bộ Elyriax.com")
     async def genshin_link(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(GenshinLinkModal())
+        oauth = await fetch_one(
+            "SELECT user_id FROM user_oauth_accounts WHERE provider = 'discord' AND provider_user_id = %s",
+            (str(interaction.user.id),),
+        )
+        sync_status = "✅ Đã đồng bộ với Elyriax.com" if oauth else "⚠️ Chưa liên kết với Elyriax.com"
+
+        embed = discord.Embed(
+            title="🔗 LIÊN KẾT & ĐỒNG BỘ TÀI KHOẢN GENSHIN IMPACT",
+            description=(
+                f"**Trạng thái tài khoản Discord:** `{sync_status}`\n\n"
+                "**Hệ thống cung cấp 2 phương thức liên kết tiện lợi:**\n\n"
+                "1️⃣ **Đồng Bộ Qua Web Elyriax (Khuyên dùng):**\n"
+                "• Bấm nút **[Đồng Bộ Qua Web Elyriax]** bên dưới.\n"
+                "• Ủy quyền Discord trong 1-click. Mọi dữ liệu tài khoản Genshin, số dư ví sẽ được đồng bộ 100% giữa Website và Discord Bot.\n\n"
+                "2️⃣ **Nhập Cookie Trực Tiếp Tại Discord:**\n"
+                "• Bấm nút **[Nhập Cookie Trực Tiếp]** bên dưới.\n"
+                "• Điền Cookie HoYoLAB (`ltuid_v2`, `ltoken_v2`), UID và Server. Dữ liệu được mã hóa bảo mật chuẩn **AES-256-CBC**."
+            ),
+            color=COLOR_CYAN,
+            timestamp=datetime.now(timezone.utc),
+        )
+        embed.set_thumbnail(url=GENSHIN_LOGO_URL)
+        embed.set_footer(text="Elyriax Hub • Bảo mật cấp ngân hàng", icon_url=PRIMOGEM_ICON_URL)
+
+        await interaction.response.send_message(embed=embed, view=LinkOptionsView(), ephemeral=True)
 
     # ----------------------------------------------------
     # 8. /genshin accounts
@@ -653,6 +715,83 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             logger.error(f"Error /genshin switch: {e}")
             await interaction.followup.send(f"❌ Lỗi khi chuyển tài khoản: {e}", ephemeral=True)
 
+    # ----------------------------------------------------
+    # 10. /genshin sync
+    # ----------------------------------------------------
+    @genshin_group.command(name="sync", description="Kiểm tra trạng thái liên kết & đồng bộ với Elyriax.com")
+    async def genshin_sync(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            oauth = await fetch_one(
+                "SELECT * FROM user_oauth_accounts WHERE provider = 'discord' AND provider_user_id = %s",
+                (str(interaction.user.id),),
+            )
+            if not oauth:
+                oauth_url = f"{settings.BASE_URL}/v1/auth/login/discord"
+                view = discord.ui.View()
+                view.add_item(
+                    discord.ui.Button(
+                        label="Đăng Nhập & Đồng Bộ Với Elyriax",
+                        url=oauth_url,
+                        style=discord.ButtonStyle.link,
+                        emoji="🔗",
+                    )
+                )
+                embed = discord.Embed(
+                    title="⚠️ TÀI KHOẢN DISCORD CHƯA ĐỒNG BỘ VỚI ELYRIAX",
+                    description=(
+                        f"Tài khoản Discord **{interaction.user.display_name}** chưa được liên kết với tài khoản trên **Elyriax.com**.\n\n"
+                        "👉 **Cách 1 (Nhanh nhất):** Bấm nút **[Đăng Nhập & Đồng Bộ Với Elyriax]** bên dưới để ủy quyền Discord 1-Click.\n"
+                        "👉 **Cách 2:** Dùng lệnh `/genshin link` để nhập Cookie HoYoLAB trực tiếp ngay trong Discord."
+                    ),
+                    color=COLOR_GOLD,
+                    timestamp=datetime.now(timezone.utc),
+                )
+                embed.set_thumbnail(url=GENSHIN_LOGO_URL)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                return
+
+            user_id = oauth["user_id"]
+            user = await fetch_one("SELECT * FROM users WHERE id = %s", (user_id,))
+            accounts = await get_accounts(user_id)
+
+            embed = discord.Embed(
+                title="✅ TÀI KHOẢN ĐÃ ĐƯỢC ĐỒNG BỘ VỚI ELYRIAX.COM",
+                description=f"Tài khoản Discord **{interaction.user.display_name}** đã được kết nối với hệ thống Elyriax.",
+                color=COLOR_GREEN,
+                timestamp=datetime.now(timezone.utc),
+            )
+            if interaction.user.display_avatar:
+                embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            else:
+                embed.set_thumbnail(url=GENSHIN_LOGO_URL)
+
+            embed.add_field(name="Elyriax User ID", value=f"`#{user_id}`", inline=True)
+            embed.add_field(name="Tên tài khoản Web", value=f"**{user.get('username') if user else 'N/A'}**", inline=True)
+            embed.add_field(name="Số tài khoản Genshin", value=f"**{len(accounts)}** tài khoản", inline=True)
+            embed.add_field(
+                name="🌐 Quản lý trên Website",
+                value=f"Bạn có thể quản lý nạp tiền, sản phẩm, và tài khoản Genshin tại [{settings.FRONTEND_URL}]({settings.FRONTEND_URL}).",
+                inline=False,
+            )
+            embed.set_footer(text="Elyriax Sync Service • Dữ liệu thời gian thực", icon_url=GENSHIN_LOGO_URL)
+
+            view = discord.ui.View()
+            view.add_item(
+                discord.ui.Button(
+                    label="Mở Website Elyriax",
+                    url=settings.FRONTEND_URL,
+                    style=discord.ButtonStyle.link,
+                    emoji="🌐",
+                )
+            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error /genshin sync: {e}")
+            await interaction.followup.send(f"❌ Lỗi kiểm tra đồng bộ: {e}", ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GenshinCog(bot))
+
+

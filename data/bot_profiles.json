@@ -1,0 +1,18 @@
+{
+  "bot_1781663897072": {
+    "host": "mc.sayra.asia",
+    "port": 25565,
+    "username": "Celeste_2",
+    "version": false,
+    "autoDefend": false,
+    "autoLeaveLowHealth": true,
+    "minHealthToLeave": 6,
+    "lockPosition": true,
+    "autoAttackMobs": false,
+    "attackRadius": 5,
+    "autoArmor": true,
+    "afk_dance": false,
+    "enableAI": false,
+    "antiAFK": false
+  }
+}

@@ -1,0 +1,119 @@
+[
+  {
+    "version": "7.0",
+    "name": "Snezhnaya",
+    "phase": "Phase 1",
+    "status": "active",
+    "going_on": true,
+    "confidence": "official",
+    "start_date": "2026-08-12T03:00:00Z",
+    "end_date": "2026-09-01T02:59:59Z",
+    "5_star_featured": {
+      "new": [
+        "Odette"
+      ],
+      "rerun": [
+        "Arlecchino"
+      ]
+    },
+    "4_star_featured": [
+      "Alyosha",
+      "Sucrose",
+      "Lynette"
+    ],
+    "weapon_banner": [
+      "Odette_Signature_Weapon_TBA",
+      "Arlecchino_Signature_Weapon_TBA"
+    ],
+    "prediction_basis": [
+      "official special program",
+      "patch 7.0 live data"
+    ]
+  },
+  {
+    "version": "7.0",
+    "name": "Snezhnaya",
+    "phase": "Phase 2",
+    "status": "upcoming",
+    "going_on": false,
+    "confidence": "official",
+    "start_date": "2026-09-01T18:00:00Z",
+    "end_date": "2026-09-22T14:59:59Z",
+    "5_star_featured": {
+      "new": [],
+      "rerun": [
+        "Flins",
+        "Ineffa"
+      ]
+    },
+    "4_star_featured": [
+      "TBA"
+    ],
+    "weapon_banner": [
+      "Flins_Signature_Weapon_TBA",
+      "Ineffa_Signature_Weapon_TBA"
+    ],
+    "prediction_basis": [
+      "official special program",
+      "patch 7.0 live data"
+    ]
+  },
+  {
+    "version": "7.1",
+    "name": "Snezhnaya",
+    "phase": "Phase 1",
+    "status": "upcoming",
+    "going_on": false,
+    "confidence": "leak_prediction",
+    "start_date": "2026-09-23T03:00:00Z",
+    "end_date": "2026-10-14T02:59:59Z",
+    "5_star_featured": {
+      "new": [
+        "Vodyanitsa"
+      ],
+      "rerun": [
+        "Zibai"
+      ]
+    },
+    "4_star_featured": [
+      "TBA"
+    ],
+    "weapon_banner": [
+      "Vodyanitsa_Signature_Weapon_TBA",
+      "Zibai_Signature_Weapon_TBA"
+    ],
+    "prediction_basis": [
+      "7.1 beta/datamine",
+      "community synthesis"
+    ]
+  },
+  {
+    "version": "7.1",
+    "name": "Snezhnaya",
+    "phase": "Phase 2",
+    "status": "upcoming",
+    "going_on": false,
+    "confidence": "leak_prediction",
+    "start_date": "2026-10-14T18:00:00Z",
+    "end_date": "2026-11-04T14:59:59Z",
+    "5_star_featured": {
+      "new": [
+        "Vesna"
+      ],
+      "rerun": [
+        "Linnea"
+      ]
+    },
+    "4_star_featured": [
+      "TBA"
+    ],
+    "weapon_banner": [
+      "Vesna_Signature_Weapon_TBA",
+      "Linnea_Signature_Weapon_TBA"
+    ],
+    "prediction_basis": [
+      "7.1 beta/datamine",
+      "community synthesis"
+    ]
+  }
+]

@@ -1,0 +1,121 @@
+{
+  "xgn3l8vici": {
+    "id": "xgn3l8vici",
+    "device": "mb",
+    "destination": "https://netflix.com/browse?nftoken=test123456",
+    "createdAt": "2026-08-31T00:50:04.590Z",
+    "expiresAt": "2026-08-31T01:50:04.590Z"
+  },
+  "zryu3519ox": {
+    "id": "zryu3519ox",
+    "device": "pc",
+    "destination": "https://netflix.com/browse?nftoken=test123456",
+    "createdAt": "2026-08-31T00:51:01.071Z",
+    "expiresAt": "2026-08-31T01:51:01.071Z"
+  },
+  "8mbs29q6k9": {
+    "id": "8mbs29q6k9",
+    "device": "tv",
+    "destination": "https://netflix.com/browse?nftoken=test123456",
+    "createdAt": "2026-08-31T00:51:04.398Z",
+    "expiresAt": "2026-08-31T01:51:04.398Z"
+  },
+  "gyehhfwl9b": {
+    "id": "gyehhfwl9b",
+    "device": "pc",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAXXDqjVLpe7ZHSMM8a/Sa0CHQ5OqKqR+lfrgPEXZfzfimkDlLK9Nlo+88wsgDGctb/aC0YPZRTm0YE36hHhHwDrlrpm/X15Ce9R3vXB5ipsjiktcTQgxd0N60+doKH09IAddqei00UMadc411UDwJXoSsvhTIkJCWYCrb3bnEYMi5hVgRAowCxdE756XBfYjDOFz2NquYlZ/WQN7BOzgbFMnMCGaxol7sz3vNe7meDkmONmbVhSLH70rXWHade3HKa5cGAYiDgoM6dQOc9B3dF1uLn4T",
+    "createdAt": "2026-08-31T00:52:52.448Z",
+    "expiresAt": "2026-08-31T01:52:52.448Z"
+  },
+  "skse3x7mha": {
+    "id": "skse3x7mha",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAXXDqjVLpe7ZHSMM8a/Sa0CHQ5OqKqR+lfrgPEXZfzfimkDlLK9Nlo+88wsgDGctb/aC0YPZRTm0YE36hHhHwDrlrpm/X15Ce9R3vXB5ipsjiktcTQgxd0N60+doKH09IAddqei00UMadc411UDwJXoSsvhTIkJCWYCrb3bnEYMi5hVgRAowCxdE756XBfYjDOFz2NquYlZ/WQN7BOzgbFMnMCGaxol7sz3vNe7meDkmONmbVhSLH70rXWHade3HKa5cGAYiDgoM6dQOc9B3dF1uLn4T",
+    "createdAt": "2026-08-31T00:52:55.601Z",
+    "expiresAt": "2026-08-31T01:52:55.601Z"
+  },
+  "iaey5cjoe9": {
+    "id": "iaey5cjoe9",
+    "device": "tv",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAXXDqjVLpe7ZHSMM8a/Sa0CHQ5OqKqR+lfrgPEXZfzfimkDlLK9Nlo+88wsgDGctb/aC0YPZRTm0YE36hHhHwDrlrpm/X15Ce9R3vXB5ipsjiktcTQgxd0N60+doKH09IAddqei00UMadc411UDwJXoSsvhTIkJCWYCrb3bnEYMi5hVgRAowCxdE756XBfYjDOFz2NquYlZ/WQN7BOzgbFMnMCGaxol7sz3vNe7meDkmONmbVhSLH70rXWHade3HKa5cGAYiDgoM6dQOc9B3dF1uLn4T",
+    "createdAt": "2026-08-31T00:53:34.862Z",
+    "expiresAt": "2026-08-31T01:53:34.862Z"
+  },
+  "vgz1cfzoqh": {
+    "id": "vgz1cfzoqh",
+    "device": "pc",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAXXDqjVLpe7ZHSMM8a/Sa0CHQ5OqKqR+lfrgPEXZfzfimkDlLK9Nlo+88wsgDGctb/aC0YPZRTm0YE36hHhHwDrlrpm/X15Ce9R3vXB5ipsjiktcTQgxd0N60+doKH09IAddqei00UMadc411UDwJXoSsvhTIkJCWYCrb3bnEYMi5hVgRAowCxdE756XBfYjDOFz2NquYlZ/WQN7BOzgbFMnMCGaxol7sz3vNe7meDkmONmbVhSLH70rXWHade3HKa5cGAYiDgoM6dQOc9B3dF1uLn4T",
+    "createdAt": "2026-08-31T00:53:44.094Z",
+    "expiresAt": "2026-08-31T01:53:44.094Z"
+  },
+  "dg1jm7dptk": {
+    "id": "dg1jm7dptk",
+    "device": "pc",
+    "destination": "https://netflix.com/?nftoken=BgiQvuvcAxLCAXFIKu0dfs01+RXGKChzYmym26XfP1QgA8FNBZgFvFPA8Ejvfo9wCLzrW2Xs2u4ippaYPwe+iQi2okDth+saAtbjKkNuCz1L8jOJDGm49d1w8uiQxmQ/35jFQ6KNqofuhQzyD3/Km7hAZUzrcmArYISqSfHkc9PRCVLb3HLuuBFPvXVra50wsoGsu+H4VW9PsRWnlSvPQRIr0Y82CLbKeNW4XZy4alt5PkbAq1foDJKSzgnMVVkLhlNQUZBmqr9gNXmZGAYiDgoM5RNT/AaUEa2sq3LM",
+    "createdAt": "2026-08-31T07:55:24.017Z",
+    "expiresAt": "2026-08-31T08:55:24.017Z"
+  },
+  "c0ifnidcta": {
+    "id": "c0ifnidcta",
+    "device": "tv",
+    "destination": "https://www.netflix.com/tv8?nftoken=BgiQvuvcAxLCAXFIKu0dfs01+RXGKChzYmym26XfP1QgA8FNBZgFvFPA8Ejvfo9wCLzrW2Xs2u4ippaYPwe+iQi2okDth+saAtbjKkNuCz1L8jOJDGm49d1w8uiQxmQ/35jFQ6KNqofuhQzyD3/Km7hAZUzrcmArYISqSfHkc9PRCVLb3HLuuBFPvXVra50wsoGsu+H4VW9PsRWnlSvPQRIr0Y82CLbKeNW4XZy4alt5PkbAq1foDJKSzgnMVVkLhlNQUZBmqr9gNXmZGAYiDgoM5RNT/AaUEa2sq3LM",
+    "createdAt": "2026-08-31T07:56:17.777Z",
+    "expiresAt": "2026-08-31T08:56:17.777Z"
+  },
+  "8vtx2humwg": {
+    "id": "8vtx2humwg",
+    "device": "pc",
+    "destination": "https://netflix.com/?nftoken=BgiQvuvcAxLCAZ1TmVc33V1DLaELZpe/SjexJD06kimTghS4O2X7JkazQjWghUfV0ZYeTtRJnybHprk4x1OAE/GyoRU9BsPpBMRRzv9v5bG6jftyd6vVAvuf+tp4SducQDZhTIOj1isD1NWWgGT7PvauFbTQyNIkQVGZB4aJLv7zRebSLqEeF7fzT3bpIYn/MQKFoBXom500ho1tmRQVBC8E+dopKcfivUEsGv0VQVpQ+nAMMXyhPAHniaRu+1/e1YncfRFqUdm5FFtcGAYiDgoMyxHZIfTlj14zs7L4",
+    "createdAt": "2026-08-31T11:21:56.996Z",
+    "expiresAt": "2026-08-31T12:21:56.996Z"
+  },
+  "jwnvad3qb2": {
+    "id": "jwnvad3qb2",
+    "device": "pc",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAZ1TmVc33V1DLaELZpe/SjexJD06kimTghS4O2X7JkazQjWghUfV0ZYeTtRJnybHprk4x1OAE/GyoRU9BsPpBMRRzv9v5bG6jftyd6vVAvuf+tp4SducQDZhTIOj1isD1NWWgGT7PvauFbTQyNIkQVGZB4aJLv7zRebSLqEeF7fzT3bpIYn/MQKFoBXom500ho1tmRQVBC8E+dopKcfivUEsGv0VQVpQ+nAMMXyhPAHniaRu+1/e1YncfRFqUdm5FFtcGAYiDgoMyxHZIfTlj14zs7L4",
+    "createdAt": "2026-08-31T11:22:47.234Z",
+    "expiresAt": "2026-08-31T12:22:47.234Z"
+  },
+  "a1w8yx7p2x": {
+    "id": "a1w8yx7p2x",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=BgiQvuvcAxLCAZ1TmVc33V1DLaELZpe/SjexJD06kimTghS4O2X7JkazQjWghUfV0ZYeTtRJnybHprk4x1OAE/GyoRU9BsPpBMRRzv9v5bG6jftyd6vVAvuf+tp4SducQDZhTIOj1isD1NWWgGT7PvauFbTQyNIkQVGZB4aJLv7zRebSLqEeF7fzT3bpIYn/MQKFoBXom500ho1tmRQVBC8E+dopKcfivUEsGv0VQVpQ+nAMMXyhPAHniaRu+1/e1YncfRFqUdm5FFtcGAYiDgoMyxHZIfTlj14zs7L4",
+    "createdAt": "2026-08-31T11:22:51.508Z",
+    "expiresAt": "2026-08-31T12:22:51.508Z"
+  },
+  "kc1s7ulx9n": {
+    "id": "kc1s7ulx9n",
+    "device": "tv",
+    "destination": "https://www.netflix.com/tv8?nftoken=BgiQvuvcAxLCAZ1TmVc33V1DLaELZpe/SjexJD06kimTghS4O2X7JkazQjWghUfV0ZYeTtRJnybHprk4x1OAE/GyoRU9BsPpBMRRzv9v5bG6jftyd6vVAvuf+tp4SducQDZhTIOj1isD1NWWgGT7PvauFbTQyNIkQVGZB4aJLv7zRebSLqEeF7fzT3bpIYn/MQKFoBXom500ho1tmRQVBC8E+dopKcfivUEsGv0VQVpQ+nAMMXyhPAHniaRu+1/e1YncfRFqUdm5FFtcGAYiDgoMyxHZIfTlj14zs7L4",
+    "createdAt": "2026-08-31T11:23:16.883Z",
+    "expiresAt": "2026-08-31T12:23:16.883Z"
+  },
+  "1x9k2nwumr": {
+    "id": "1x9k2nwumr",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=Bgiqv+vcAxLCAZ58+2K0qU6QjSA694WAr1fpVkVGT8ia2Egv8scQUXvWq+B5CdWchQGkhpV0MADGq+Tw3hMJCnj3AaaD+AMhpOUH5EoI+T+9LnvV5uy/A6U0bZzLAuT6VN+Y2OO3A0j3llRjmqp2Wk7//FtQU+t2ugnhCRM1/4atN7rV5TwVWB6YDAM7aagveytx9POjULwcWnQvhyUxdt6YgqmMwLusDWnAFJKsiwZkpJsUgUb9nu8a8BH5QWYmcE82wvQqeYSrLgvAGAYiDgoM2UZFhTDvOOLnWSGY",
+    "createdAt": "2026-09-12T10:42:27.111Z",
+    "expiresAt": "2026-09-12T11:42:27.111Z"
+  },
+  "55tgjg4he1": {
+    "id": "55tgjg4he1",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=Bgiqv+vcAxLDAQCyojbWYfPGjn3lL+UBQCiylJzaEl7mOrw/mbcAyTChFtM6vSJzFvTtIAQoszoiHQZvE3Jv04KsOGZ7m1g45GB3cbCrw0Wpui4uUEyvdqmtHCQ8NI1FnVR6+VINWzCpUgx/lzg4BYlcyx4Y6GGzJKEsrmrLoHLUsa1cy3waKHFl2iKXdk7EvDm0ogA8a9/0ddo9Aoga1pY/fWmW/EtJ2RGLS39zrB4csr0i5rx6GjIp2dvlljW+vUN56WYHLYrvOLg+ZRgGIg4KDLuADqXu/k5SD5HrSQ==",
+    "createdAt": "2026-09-13T09:56:58.348Z",
+    "expiresAt": "2026-09-13T10:56:58.348Z"
+  },
+  "g50666qjel": {
+    "id": "g50666qjel",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=Bgiqv+vcAxLCAb48DMKhNREHsNaWMHsv90VL3+sqqs+9C833RIOcvdfuini8M4dGL+vXDEheI7lf3KNPcVfY6xy7/QsQs7NhuX3Y/Jm1p6e6f67MqgA/HB+llN2MnLjIOzRos1zA8bWiDQe/e81DJjWkp7BQfix0rVkftMIS3YdLUMuD5GqeBLCX7yeGeQ0Bvc2a+/0IR8OhUsZXwHoA8IEUl20IUz/c2Hv7JqTd2pVIjLLhsaDYKDchh8Nb1LxelwKHTvE94J69d0DvGAYiDgoM7ilRWpuCrj4PLfcL",
+    "createdAt": "2026-09-13T10:59:49.181Z",
+    "expiresAt": "2026-09-13T11:59:49.181Z"
+  },
+  "7tvhx0uh4x": {
+    "id": "7tvhx0uh4x",
+    "device": "mb",
+    "destination": "https://netflix.com/unsupported?nftoken=Bgiqv+vcAxLCAWydlJ5bsRks303qO42wLsXu71oKpEskVkiPy3C4shee98Eeop4thu9ROUdMX9K3HYuFRBecwA25MMydC1InTB8eApISiZA+TszXX12YCV0ToteWOcm8hIJZ84rIsGcVk8qrM+C4Ti6is0v8n8ETQbnXii62EuqN9BrctlhwKmkPahIfV+VA2I9/W8PrEat84dpRXW1PKW0Pe7dbf/SxNaTd9mb5jBtkjCK33+fbCOGdIfXjzhlhQxaZj/ZEZrfv1n/iGAYiDgoMn58OI0hta/hs9lql",
+    "createdAt": "2026-09-13T11:07:01.186Z",
+    "expiresAt": "2026-09-13T12:07:01.186Z"
+  }
+}

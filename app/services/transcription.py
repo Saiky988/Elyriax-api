@@ -5,7 +5,16 @@ from app.schemas.segment import Segment, TranscriptionResponse
 
 class TranscriptionService:
     def __init__(self):
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                raise ValueError("GROQ_API_KEY is not set.")
+            self._client = Groq(api_key=api_key)
+        return self._client
 
     async def transcribe(self, audio_path: Path) -> TranscriptionResponse:
         with open(audio_path, "rb") as file:

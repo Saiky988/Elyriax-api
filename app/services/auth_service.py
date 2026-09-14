@@ -59,6 +59,22 @@ async def handle_oauth_login_or_link(profile: Dict[str, Any], state_token: Optio
                     "action": "linked",
                 }
             else:
+                old_user = await fetch_one("SELECT * FROM users WHERE id = %s", (existing_oauth["user_id"],))
+                if old_user and (
+                    str(old_user.get("username", "")).startswith("discord_")
+                    or not old_user.get("password_hash")
+                    or old_user.get("email") == profile.get("email")
+                ):
+                    old_uid = old_user["id"]
+                    await execute("UPDATE genshin_accounts SET user_id = %s WHERE user_id = %s", (current_user_id, old_uid))
+                    await execute("UPDATE user_oauth_accounts SET user_id = %s WHERE id = %s", (current_user_id, existing_oauth["id"]))
+                    await execute("DELETE FROM user_settings WHERE user_id = %s", (old_uid,))
+                    await execute("DELETE FROM users WHERE id = %s", (old_uid,))
+                    return {
+                        "status": "success",
+                        "message": f"Đã chuyển và liên kết {profile['provider']} thành công!",
+                        "action": "linked",
+                    }
                 raise ValueError(f"Tài khoản {profile['provider']} này đã được liên kết với một người dùng khác.")
 
         await execute(

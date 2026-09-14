@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import discord
 from discord import app_commands
@@ -25,13 +26,13 @@ from app.services.genshin.stats import get_role_and_stats
 
 logger = logging.getLogger("Command_Genshin")
 
-COLOR_GOLD = 0xF59E0B
-COLOR_CYAN = 0x06B6D4
-COLOR_PURPLE = 0x8B5CF6
-COLOR_GREEN = 0x10B981
-COLOR_RED = 0xEF4444
-COLOR_BLUE = 0x3B82F6
-COLOR_PINK = 0xEC4899
+COLOR_GOLD = 0xD97706
+COLOR_CYAN = 0x0891B2
+COLOR_PURPLE = 0x7C3AED
+COLOR_GREEN = 0x059669
+COLOR_RED = 0xDC2626
+COLOR_BLUE = 0x2563EB
+COLOR_PINK = 0xDB2777
 
 GENSHIN_LOGO_URL = "https://assets.stickpng.com/images/6016e379650b280004dc5891.png"
 PRIMOGEM_ICON_URL = "https://static.wikia.nocookie.net/gensin-impact/images/d/d4/Item_Primogem.png"
@@ -40,12 +41,12 @@ RESIN_ICON_URL = "https://static.wikia.nocookie.net/gensin-impact/images/3/35/It
 
 def make_progress_bar(current: int, max_val: int, length: int = 10) -> str:
     if max_val <= 0:
-        return "░" * length
+        return "-" * length
     ratio = min(max(current / max_val, 0.0), 1.0)
     filled = int(round(ratio * length))
     empty = length - filled
     percent = int(ratio * 100)
-    return f"`[{'█' * filled}{'░' * empty}]` **{current}/{max_val}** ({percent}%)"
+    return f"`[{'=' * filled}{'-' * empty}]` **{current}/{max_val}** ({percent}%)"
 
 
 async def get_or_create_discord_user(discord_user: discord.User | discord.Member) -> int:
@@ -98,8 +99,7 @@ async def get_user_genshin_payload(discord_user: discord.User | discord.Member, 
     )
     if not oauth:
         raise ValueError(
-            "❌ **Bạn chưa liên kết tài khoản Genshin Impact!**\n"
-            "👉 Hãy sử dụng lệnh `/genshin link` để liên kết tài khoản HoYoLAB an toàn ngay trong Discord."
+            "Ban chua lien ket tai khoan Genshin Impact. Su dung lenh /genshin link de them tai khoan."
         )
     user_id = oauth["user_id"]
 
@@ -117,8 +117,7 @@ async def get_user_genshin_payload(discord_user: discord.User | discord.Member, 
         )
     if not row:
         raise ValueError(
-            "❌ **Bạn chưa có tài khoản Genshin nào được liên kết!**\n"
-            "👉 Hãy sử dụng lệnh `/genshin link` để thêm tài khoản Genshin của bạn."
+            "Ban chua co tai khoan Genshin nao duoc them. Su dung lenh /genshin link de them tai khoan."
         )
     return await get_ready_genshin_payload(user_id, row["id"])
 
@@ -128,10 +127,9 @@ class CodesView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(
             discord.ui.Button(
-                label="Trang Đổi Code HoYoverse",
+                label="Trang Doi Code HoYoverse",
                 url="https://genshin.hoyoverse.com/en/gift",
                 style=discord.ButtonStyle.link,
-                emoji="🎁",
             )
         )
         self.add_item(
@@ -139,30 +137,29 @@ class CodesView(discord.ui.View):
                 label="Fandom Wiki",
                 url="https://genshin-impact.fandom.com/wiki/Promotional_Code",
                 style=discord.ButtonStyle.link,
-                emoji="📖",
             )
         )
 
 
-class GenshinLinkModal(discord.ui.Modal, title="Liên Kết HoYoLAB Genshin Impact"):
+class GenshinLinkModal(discord.ui.Modal, title="Lien Ket HoYoLAB Genshin Impact"):
     cookie = discord.ui.TextInput(
         label="Cookie HoYoLAB (ltuid_v2 & ltoken_v2)",
         style=discord.TextStyle.paragraph,
-        placeholder="Dán toàn bộ chuỗi cookie lấy từ trang hoyolab.com...",
+        placeholder="Dan toan bo chuoi cookie lay tu trang hoyolab.com...",
         required=True,
         min_length=20,
         max_length=2000,
     )
     uid = discord.ui.TextInput(
-        label="UID Trong Game Genshin Impact",
+        label="UID Game Genshin Impact",
         placeholder="VD: 812345678",
         required=True,
         min_length=9,
         max_length=10,
     )
     server = discord.ui.TextInput(
-        label="Máy Chủ (Server)",
-        placeholder="os_asia (Asia), os_usa (NA), os_euro (EU), os_cht (TW/HK)",
+        label="May Chu (Server)",
+        placeholder="os_asia, os_usa, os_euro, os_cht",
         default="os_asia",
         required=True,
         max_length=20,
@@ -194,50 +191,52 @@ class GenshinLinkModal(discord.ui.Modal, title="Liên Kết HoYoLAB Genshin Impa
             )
 
             embed = discord.Embed(
-                title="✅ LIÊN KẾT TÀI KHOẢN GENSHIN THÀNH CÔNG",
-                description="Tài khoản HoYoLAB của bạn đã được mã hóa an toàn bằng thuật toán **AES-256-CBC** vào hệ thống Elyriax.",
+                title="Lien Ket Tai Khoan Genshin Thanh Cong",
+                description="Tai khoan HoYoLAB cua ban da duoc ma hoa bao mat (AES-256-CBC) vao he thong.",
                 color=COLOR_GREEN,
                 timestamp=datetime.now(timezone.utc),
             )
             embed.set_thumbnail(url=GENSHIN_LOGO_URL)
-            embed.add_field(name="Tên Nhân Vật (Nickname)", value=f"**{res.get('nickname')}**", inline=True)
+            embed.add_field(name="Ten Nhan Vat", value=f"**{res.get('nickname')}**", inline=True)
             embed.add_field(name="UID Game", value=f"`{res.get('uid')}`", inline=True)
-            embed.add_field(name="Máy Chủ", value=f"`{res.get('server').upper()}`", inline=True)
+            embed.add_field(name="May Chu", value=f"`{res.get('server').upper()}`", inline=True)
             embed.add_field(
-                name="Trạng Thái Tự Động",
-                value="• 🌟 **Tự động điểm danh hàng ngày:** Bật\n• 🎁 **Tự động nhận Giftcode:** Sẵn sàng\n• ⚡ **Theo dõi Nhựa thời gian thực:** Sẵn sàng",
+                name="Trang Thai Tu Dong",
+                value="- Tu dong diem danh: Bat\n- Tu dong nhan Giftcode: San sang\n- Theo doi Nhua thoi gian thuc: San sang",
                 inline=False,
             )
-            embed.set_footer(text="Elyriax Genshin System • Bảo mật cấp ngân hàng", icon_url=PRIMOGEM_ICON_URL)
+            embed.set_footer(text="Elyriax Genshin System")
 
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Genshin link modal error: {e}")
-            await interaction.followup.send(f"❌ **Lỗi liên kết:** {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"Loi lien ket: {str(e)}", ephemeral=True)
 
 
 class LinkOptionsView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        oauth_url = f"{settings.BASE_URL}/v1/auth/login/discord"
+        oauth_url = (
+            f"https://discord.com/oauth2/authorize?client_id={settings.DISCORD_CLIENT_ID}"
+            f"&redirect_uri={quote(f'{settings.BASE_URL}/v1/auth/discord/callback')}"
+            f"&response_type=code&scope=identify+email&state=login"
+        )
         self.add_item(
             discord.ui.Button(
-                label="Đồng Bộ Qua Web Elyriax",
+                label="Dang Nhap Elyriax",
                 url=oauth_url,
                 style=discord.ButtonStyle.link,
-                emoji="🌐",
             )
         )
         self.add_item(
             discord.ui.Button(
-                label="Trang Chủ Elyriax",
+                label="Website Elyriax",
                 url=settings.FRONTEND_URL,
                 style=discord.ButtonStyle.link,
-                emoji="🏠",
             )
         )
 
-    @discord.ui.button(label="Nhập Cookie Trực Tiếp", style=discord.ButtonStyle.primary, emoji="📝")
+    @discord.ui.button(label="Nhap Cookie HoYoLAB", style=discord.ButtonStyle.primary)
     async def enter_cookie_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(GenshinLinkModal())
 
@@ -246,25 +245,25 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    genshin_group = app_commands.Group(name="genshin", description="Hệ thống tự động hóa và tiện ích Genshin Impact")
+    genshin_group = app_commands.Group(name="genshin", description="Tien ich va tu dong hoa Genshin Impact")
 
     # ----------------------------------------------------
     # 1. /genshin codes
     # ----------------------------------------------------
-    @genshin_group.command(name="codes", description="Tra cứu toàn bộ giftcode Genshin Impact mới nhất kèm phần thưởng")
+    @genshin_group.command(name="codes", description="Tra cuu toan bo giftcode Genshin Impact moi nhat")
     async def genshin_codes(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
             cards = await get_all_codes()
             if not cards:
-                await interaction.followup.send("⚠️ Hiện không có giftcode nào khả dụng hoặc không thể nạp từ wiki.")
+                await interaction.followup.send("Hien khong co giftcode nao kha dung.")
                 return
 
             embed = discord.Embed(
-                title="✨ DANH SÁCH GIFTCODE GENSHIN IMPACT ĐANG HOẠT ĐỘNG",
+                title="Danh Sach Giftcode Genshin Impact",
                 description=(
-                    f"Tìm thấy **{len(cards)} mã quà tặng** khả dụng được cập nhật thời gian thực từ Fandom Wiki.\n"
-                    "👉 Dùng `/genshin redeem <mã>` để đổi quà tự động trực tiếp cho tài khoản!"
+                    f"Tim thay {len(cards)} ma qua tang kha dung tu Fandom Wiki.\n"
+                    "Dung /genshin redeem <ma> de doi qua truc tiep cho tai khoan."
                 ),
                 color=COLOR_GOLD,
                 timestamp=datetime.now(timezone.utc),
@@ -273,33 +272,33 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
 
             for idx, c in enumerate(cards[:10], start=1):
                 code_str = " / ".join([f"`{code}`" for code in c.get("codes", [])])
-                rewards_str = " • ".join(c.get("rewards", [])) or "Quà tặng trong game"
-                server_str = c.get("server", "Toàn cầu")
-                validity_str = c.get("validity") or "Không xác định"
+                rewards_str = " • ".join(c.get("rewards", [])) or "Qua tang trong game"
+                server_str = c.get("server", "Toan cau")
+                validity_str = c.get("validity") or "Khong xac dinh"
 
                 field_value = (
-                    f"**Mã Code:** {code_str}\n"
-                    f"**Phần thưởng:** {rewards_str}\n"
-                    f"**Khu vực:** `{server_str}` | **Hạn:** *{validity_str}*"
+                    f"**Ma Code:** {code_str}\n"
+                    f"**Phan thuong:** {rewards_str}\n"
+                    f"**Khu vuc:** `{server_str}` | **Han:** *{validity_str}*"
                 )
-                embed.add_field(name=f"#{idx} Quà Tặng", value=field_value, inline=False)
+                embed.add_field(name=f"Code #{idx}", value=field_value, inline=False)
 
-            embed.set_footer(text="Elyriax Hub • Dữ liệu Fandom Wiki", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Hub - Fandom Wiki")
             await interaction.followup.send(embed=embed, view=CodesView())
         except Exception as e:
             logger.error(f"Error /genshin codes: {e}")
-            await interaction.followup.send(f"❌ Lỗi khi lấy danh sách mã code: {e}")
+            await interaction.followup.send(f"Loi khi lay danh sach ma code: {e}")
 
     # ----------------------------------------------------
     # 2. /genshin banner
     # ----------------------------------------------------
-    @genshin_group.command(name="banners", description="Xem thông tin banner nhân vật & vũ khí Genshin Impact hiện tại")
+    @genshin_group.command(name="banners", description="Xem thong tin banner nhan vat va vu khi hien tai")
     async def genshin_banners(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
             banners = await get_banners()
             if not banners:
-                await interaction.followup.send("⚠️ Chưa có dữ liệu banner khả dụng.")
+                await interaction.followup.send("Chua co du lieu banner kha dung.")
                 return
 
             active_banner = next((b for b in banners if b.get("going_on")), banners[0])
@@ -307,7 +306,7 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             version = active_banner.get("version", "N/A")
             phase = active_banner.get("phase", "Phase 1")
             name = active_banner.get("name", "Event Wish")
-            status = "🟢 ĐANG DIỄN RA" if active_banner.get("going_on") else "🟡 SẮP DIỄN RA"
+            status = "DANG DIEN RA" if active_banner.get("going_on") else "SAP DIEN RA"
 
             five_stars_new = active_banner.get("5_star_featured", {}).get("new", [])
             five_stars_rerun = active_banner.get("5_star_featured", {}).get("rerun", [])
@@ -319,44 +318,44 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             end_date = active_banner.get("end_date", "").replace("T", " ").replace("Z", "")
 
             embed = discord.Embed(
-                title=f"🌠 CẦU NGUYỆN GENSHIN IMPACT — PHIÊN BẢN {version} ({phase})",
-                description=f"**Chủ đề:** *{name}* • **Trạng thái:** `{status}`",
+                title=f"Cau Nguyen Genshin Impact - Phien Ban {version} ({phase})",
+                description=f"**Chu de:** *{name}* | **Trang thai:** `{status}`",
                 color=COLOR_PURPLE,
                 timestamp=datetime.now(timezone.utc),
             )
             embed.set_thumbnail(url="https://static.wikia.nocookie.net/gensin-impact/images/a/ab/Item_Intertwined_Fate.png")
 
             embed.add_field(
-                name="⭐ Nhân Vật 5 Sao Rate-Up",
-                value="\n".join([f"• ⭐⭐⭐⭐⭐ **{c}**" for c in five_stars]) or "• Chưa công bố",
+                name="Nhan Vat 5 Sao Rate-Up",
+                value="\n".join([f"- **{c}**" for c in five_stars]) or "- Chua cong bo",
                 inline=False,
             )
             embed.add_field(
-                name="⭐ Nhân Vật 4 Sao Đi Kèm",
-                value=" • ".join([f"**{c}**" for c in four_stars]) or "Chưa công bố",
+                name="Nhan Vat 4 Sao Di Kem",
+                value=" • ".join([f"**{c}**" for c in four_stars]) or "Chua cong bo",
                 inline=False,
             )
             embed.add_field(
-                name="⚔️ Thân Hình Đúc Kết (Vũ Khí 5 Sao)",
-                value="\n".join([f"• 🗡️ **{w.replace('_', ' ')}**" for w in weapons]) or "Chưa công bố",
+                name="Vu Khi 5 Sao (Than Hinh Duc Ket)",
+                value="\n".join([f"- **{w.replace('_', ' ')}**" for w in weapons]) or "Chua cong bo",
                 inline=False,
             )
             embed.add_field(
-                name="⏰ Thời Gian Diễn Ra",
-                value=f"• **Bắt đầu:** `{start_date} UTC`\n• **Kết thúc:** `{end_date} UTC`",
+                name="Thoi Gian Dien Ra",
+                value=f"- **Bat dau:** `{start_date} UTC`\n- **Ket thuc:** `{end_date} UTC`",
                 inline=False,
             )
 
-            embed.set_footer(text="Elyriax Genshin Tracker • Dữ liệu chính thức & Dự đoán", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Genshin Tracker")
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error /genshin banners: {e}")
-            await interaction.followup.send(f"❌ Lỗi khi tải dữ liệu banner: {e}")
+            await interaction.followup.send(f"Loi khi tai du lieu banner: {e}")
 
     # ----------------------------------------------------
     # 3. /genshin checkin
     # ----------------------------------------------------
-    @genshin_group.command(name="checkin", description="Điểm danh HoYoLAB nhận quà hàng ngày ngay lập tức")
+    @genshin_group.command(name="checkin", description="Diem danh HoYoLAB nhan qua hang ngay")
     async def genshin_checkin(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
@@ -364,15 +363,15 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             res = await check_in_daily(payload)
 
             claimed = res.get("claimed", False)
-            title = "🎉 ĐIỂM DANH THÀNH CÔNG!" if claimed else "✨ HÔM NAY BẠN ĐÃ ĐIỂM DANH RỒI!"
+            title = "Diem Danh Thanh Cong" if claimed else "Hom Nay Ban Da Diem Danh Roi"
             color = COLOR_GREEN if claimed else COLOR_CYAN
 
             today_reward = res.get("today_reward") or {}
             tomorrow_reward = res.get("tomorrow_reward") or {}
 
             embed = discord.Embed(
-                title=f"📅 {title}",
-                description=f"Điểm danh HoYoLAB cho Nhà Khai Phá: **{res.get('nickname')}** (UID: `{res.get('uid')}`)",
+                title=title,
+                description=f"Nha Khai Pha: **{res.get('nickname')}** (UID: `{res.get('uid')}`)",
                 color=color,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -381,40 +380,40 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             else:
                 embed.set_thumbnail(url=PRIMOGEM_ICON_URL)
 
-            embed.add_field(name="Máy Chủ", value=f"`{res.get('server')}`", inline=True)
-            embed.add_field(name="Cấp Thám Hiểm (AR)", value=f"`AR {res.get('adventure_rank', 'N/A')}`", inline=True)
+            embed.add_field(name="May Chu", value=f"`{res.get('server')}`", inline=True)
+            embed.add_field(name="Cap Tham Hiem (AR)", value=f"`AR {res.get('adventure_rank', 'N/A')}`", inline=True)
             embed.add_field(
-                name="Tiến Độ Điểm Danh",
-                value=f"`{res.get('signed_days')}/{res.get('total_days_month')}` ngày",
+                name="Tien Do Diem Danh",
+                value=f"`{res.get('signed_days')}/{res.get('total_days_month')}` ngay",
                 inline=True,
             )
 
             if today_reward:
                 embed.add_field(
-                    name="🎁 Phần Thưởng Hôm Nay",
-                    value=f"**{today_reward.get('name')}** × `{today_reward.get('count')}`",
+                    name="Phan Thuong Hom Nay",
+                    value=f"**{today_reward.get('name')}** x `{today_reward.get('count')}`",
                     inline=False,
                 )
 
             if tomorrow_reward:
                 embed.add_field(
-                    name="⏳ Phần Thưởng Ngày Mai",
-                    value=f"**{tomorrow_reward.get('name')}** × `{tomorrow_reward.get('count')}`",
+                    name="Phan Thuong Ngay Mai",
+                    value=f"**{tomorrow_reward.get('name')}** x `{tomorrow_reward.get('count')}`",
                     inline=False,
                 )
 
-            embed.set_footer(text="Elyriax Auto-Checkin • Điểm danh mượt mà mỗi ngày", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Auto-Checkin")
             await interaction.followup.send(embed=embed)
         except ValueError as ve:
             await interaction.followup.send(str(ve))
         except Exception as e:
             logger.error(f"Error /genshin checkin: {e}")
-            await interaction.followup.send(f"❌ Thất bại khi điểm danh: {e}")
+            await interaction.followup.send(f"That bai khi diem danh: {e}")
 
     # ----------------------------------------------------
     # 4. /genshin daily_note
     # ----------------------------------------------------
-    @genshin_group.command(name="daily_note", description="Kiểm tra Nhựa nguyên bản, Ủy thác, Boss tuần và Phái đi thám hiểm")
+    @genshin_group.command(name="daily_note", description="Kiem tra Nhua nguyen ban, Uy thac, Boss tuan va Tham hiem")
     async def genshin_daily_note(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
@@ -422,7 +421,7 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             res = await get_daily_note(payload)
 
             if not res.get("ok"):
-                await interaction.followup.send(f"❌ Không thể tải Daily Note: {res.get('error')}")
+                await interaction.followup.send(f"Khong the tai Daily Note: {res.get('error')}")
                 return
 
             data = res["data"]
@@ -434,84 +433,78 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
 
             cur_resin = resin.get("current", 0)
             max_resin = resin.get("max", 200)
-            full_time = resin.get("estimated_full_time", "Đã đầy")
+            full_time = resin.get("estimated_full_time", "Da day")
 
             embed = discord.Embed(
-                title="⚡ GENSHIN IMPACT — REAL-TIME DAILY NOTE",
-                description="Báo cáo tài nguyên và trạng thái thời gian thực tài khoản Genshin Impact:",
+                title="Genshin Impact - Daily Note",
+                description="Bao cao tai nguyen thoi gian thuc:",
                 color=COLOR_CYAN,
                 timestamp=datetime.now(timezone.utc),
             )
             embed.set_thumbnail(url=RESIN_ICON_URL)
 
-            # Resin progress
             resin_bar = make_progress_bar(cur_resin, max_resin, 12)
             embed.add_field(
-                name="🌙 Nhựa Nguyên Bản (Original Resin)",
-                value=f"{resin_bar}\n• **Thời gian hồi đầy:** `{full_time}`",
+                name="Nhua Nguyen Ban (Original Resin)",
+                value=f"{resin_bar}\n- Thoi gian hoi day: `{full_time}`",
                 inline=False,
             )
 
-            # Daily Tasks
             task_fin = tasks.get("finished_num", 0)
             task_total = tasks.get("total_num", 4)
-            extra_claimed = "✅ Đã nhận" if tasks.get("is_extra_reward_received") else "⏳ Chưa nhận"
+            extra_claimed = "Da nhan" if tasks.get("is_extra_reward_received") else "Chua nhan"
             task_bar = make_progress_bar(task_fin, task_total, 8)
             embed.add_field(
-                name="📜 Nhiệm Vụ Ủy Thác Hàng Ngày",
-                value=f"{task_bar}\n• **Thưởng Katherine:** {extra_claimed}",
+                name="Nhiem Vu Uy Thac",
+                value=f"{task_bar}\n- Thuong Katherine: {extra_claimed}",
                 inline=True,
             )
 
-            # Boss discount
             remain_boss = resin.get("resin_discount", {}).get("remain_num", 0)
             limit_boss = resin.get("resin_discount", {}).get("limit_num", 3)
             embed.add_field(
-                name="⚔️ Giảm Nửa Nhựa Boss Tuần",
-                value=f"`{remain_boss}/{limit_boss}` lượt còn lại",
+                name="Giam Nua Nhua Boss Tuan",
+                value=f"`{remain_boss}/{limit_boss}` luot con lai",
                 inline=True,
             )
 
-            # Home coin
             coin_cur = home_coin.get("current", 0)
             coin_max = home_coin.get("max", 2400)
-            coin_full = home_coin.get("estimated_full_time", "Đã đầy")
+            coin_full = home_coin.get("estimated_full_time", "Da day")
             coin_bar = make_progress_bar(coin_cur, coin_max, 8)
             embed.add_field(
-                name="🏡 Tiền Động Tiên (Serenitea Pot)",
-                value=f"{coin_bar}\n• **Đầy lúc:** `{coin_full}`",
+                name="Tien Dong Tien (Serenitea Pot)",
+                value=f"{coin_bar}\n- Day luc: `{coin_full}`",
                 inline=True,
             )
 
-            # Expeditions
             exp_list = expeditions.get("list", [])
             exp_lines = []
             for idx, exp in enumerate(exp_list, 1):
-                st = "✅ Xong" if exp.get("status") == "Finished" else f"⏳ {exp.get('estimated_finished_time')}"
-                exp_lines.append(f"• **Slot {idx}:** {st}")
+                st = "Hoan thanh" if exp.get("status") == "Finished" else f"{exp.get('estimated_finished_time')}"
+                exp_lines.append(f"- Slot {idx}: {st}")
 
             embed.add_field(
-                name=f"🧭 Phái Đi Thám Hiểm ({expeditions.get('current_num')}/{expeditions.get('max_num')})",
-                value="\n".join(exp_lines) or "Không có nhân vật nào phái đi.",
+                name=f"Phai Di Tham Hiem ({expeditions.get('current_num')}/{expeditions.get('max_num')})",
+                value="\n".join(exp_lines) or "Khong co nhan vat nao phai di.",
                 inline=True,
             )
 
-            # Transformer
-            trans_ready = "✅ Sẵn sàng sử dụng!" if transformer.get("ready") else "⏳ Đang hồi lại"
-            embed.add_field(name="🔮 Máy Biến Đổi Chất Lượng", value=trans_ready, inline=True)
+            trans_ready = "San sang su dung" if transformer.get("ready") else "Dang hoi lai"
+            embed.add_field(name="May Bien Doi Chat Luong", value=trans_ready, inline=True)
 
-            embed.set_footer(text="Elyriax Daily Monitor • Đồng bộ trực tiếp từ HoYoLAB", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Daily Monitor")
             await interaction.followup.send(embed=embed)
         except ValueError as ve:
             await interaction.followup.send(str(ve))
         except Exception as e:
             logger.error(f"Error /genshin daily_note: {e}")
-            await interaction.followup.send(f"❌ Lỗi khi tải Daily Note: {e}")
+            await interaction.followup.send(f"Loi khi tai Daily Note: {e}")
 
     # ----------------------------------------------------
     # 5. /genshin stats
     # ----------------------------------------------------
-    @genshin_group.command(name="stats", description="Xem chiến tích tài khoản: AR, ngày chơi, thành tựu, rương và thần đồng")
+    @genshin_group.command(name="stats", description="Xem chien tich tai khoan: AR, ngay choi, thanh tuu, ruong va than dong")
     async def genshin_stats(self, interaction: discord.Interaction):
         await interaction.response.defer()
         try:
@@ -519,7 +512,7 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             res = await get_role_and_stats(payload)
 
             if not res.get("ok"):
-                await interaction.followup.send(f"❌ Không thể tải chiến tích: {res.get('message')}")
+                await interaction.followup.send(f"Khong the tai chien tich: {res.get('message')}")
                 return
 
             role = res.get("role", {})
@@ -528,8 +521,8 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             oculus = stats.get("oculus", {})
 
             embed = discord.Embed(
-                title="🏆 CHIẾN TÍCH TÀI KHOẢN GENSHIN IMPACT",
-                description=f"Nhà Khám Phá: **{role.get('nickname')}** • **Cấp Thám Hiểm (AR):** `{role.get('level')}`",
+                title="Chien Tich Tai Khoan Genshin Impact",
+                description=f"Nha Kham Pha: **{role.get('nickname')}** | **Cap Tham Hiem (AR):** `{role.get('level')}`",
                 color=COLOR_PINK,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -538,41 +531,41 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             else:
                 embed.set_thumbnail(url=GENSHIN_LOGO_URL)
 
-            embed.add_field(name="📅 Ngày Hoạt Động", value=f"`{stats.get('active_days', 0)}` ngày", inline=True)
-            embed.add_field(name="🏅 Thành Tựu Đạt Được", value=f"`{stats.get('achievements', 0)}` cái", inline=True)
-            embed.add_field(name="👥 Số Nhân Vật", value=f"`{stats.get('avatars_count', 0)}` nhân vật", inline=True)
-            embed.add_field(name="🌀 La Hoàn Thâm Cảnh", value=f"`{stats.get('spiral_abyss', 'Chưa vào')}`", inline=True)
-            embed.add_field(name="📍 Điểm Dịch Chuyển", value=f"`{stats.get('way_points', 0)}` điểm", inline=True)
-            embed.add_field(name="🏛️ Bí Cảnh Đã Mở", value=f"`{stats.get('domains', 0)}` bí cảnh", inline=True)
+            embed.add_field(name="Ngay Hoat Dong", value=f"`{stats.get('active_days', 0)}` ngay", inline=True)
+            embed.add_field(name="Thanh Tuu Dat Duoc", value=f"`{stats.get('achievements', 0)}` cai", inline=True)
+            embed.add_field(name="So Nhan Vat", value=f"`{stats.get('avatars_count', 0)}`", inline=True)
+            embed.add_field(name="La Hoan Tham Canh", value=f"`{stats.get('spiral_abyss', 'Chua vao')}`", inline=True)
+            embed.add_field(name="Diem Dich Chuyen", value=f"`{stats.get('way_points', 0)}`", inline=True)
+            embed.add_field(name="Bi Canh Da Mo", value=f"`{stats.get('domains', 0)}`", inline=True)
 
             chests_text = (
-                f"• Thường: `{chests.get('common', 0)}`\n"
-                f"• Cao Cấp: `{chests.get('exquisite', 0)}`\n"
-                f"• Hiếm: `{chests.get('precious', 0)}`\n"
-                f"• Siêu Cấp: `{chests.get('luxurious', 0)}`"
+                f"- Thuong: `{chests.get('common', 0)}`\n"
+                f"- Cao Cap: `{chests.get('exquisite', 0)}`\n"
+                f"- Hiem: `{chests.get('precious', 0)}`\n"
+                f"- Sieu Cap: `{chests.get('luxurious', 0)}`"
             )
-            embed.add_field(name="📦 Thống Kê Mở Rương", value=chests_text, inline=True)
+            embed.add_field(name="Thong Ke Mo Ruong", value=chests_text, inline=True)
 
             oculus_text = (
-                f"• Phong: `{oculus.get('anemo', 0)}` • Nham: `{oculus.get('geo', 0)}`\n"
-                f"• Lôi: `{oculus.get('electro', 0)}` • Thảo: `{oculus.get('dendro', 0)}`\n"
-                f"• Thủy: `{oculus.get('hydro', 0)}` • Hỏa: `{oculus.get('pyro', 0)}`"
+                f"- Phong: `{oculus.get('anemo', 0)}` | Nham: `{oculus.get('geo', 0)}`\n"
+                f"- Loi: `{oculus.get('electro', 0)}` | Thao: `{oculus.get('dendro', 0)}`\n"
+                f"- Thuy: `{oculus.get('hydro', 0)}` | Hoa: `{oculus.get('pyro', 0)}`"
             )
-            embed.add_field(name="✨ Thần Đồng Thu Thập", value=oculus_text, inline=True)
+            embed.add_field(name="Than Dong Thu Thap", value=oculus_text, inline=True)
 
-            embed.set_footer(text="Elyriax Battle Chronicle • Dữ liệu chính thức HoYoLAB", icon_url=PRIMOGEM_ICON_URL)
+            embed.set_footer(text="Elyriax Battle Chronicle")
             await interaction.followup.send(embed=embed)
         except ValueError as ve:
             await interaction.followup.send(str(ve))
         except Exception as e:
             logger.error(f"Error /genshin stats: {e}")
-            await interaction.followup.send(f"❌ Lỗi khi tải chiến tích: {e}")
+            await interaction.followup.send(f"Loi khi tai chien tich: {e}")
 
     # ----------------------------------------------------
     # 6. /genshin redeem <code>
     # ----------------------------------------------------
-    @genshin_group.command(name="redeem", description="Đổi giftcode nhận quà trực tiếp cho tài khoản Genshin của bạn")
-    @app_commands.describe(code="Mã giftcode cần đổi (VD: GENSHINGIFT)")
+    @genshin_group.command(name="redeem", description="Doi giftcode nhan qua truc tiep cho tai khoan Genshin")
+    @app_commands.describe(code="Ma giftcode can doi (VD: GENSHINGIFT)")
     async def genshin_redeem(self, interaction: discord.Interaction, code: str):
         await interaction.response.defer()
         try:
@@ -581,12 +574,12 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
 
             res = await redeem_code(payload)
             ok = res.get("ok", False)
-            title = "🎁 NHẬP MÃ GIFTCODE THÀNH CÔNG!" if ok else "⚠️ NHẬP CODE KHÔNG THÀNH CÔNG"
+            title = "Nhap Ma Giftcode Thanh Cong" if ok else "Nhap Ma Khong Thanh Cong"
             color = COLOR_GREEN if ok else COLOR_RED
 
             embed = discord.Embed(
                 title=title,
-                description=f"**Mã quà tặng:** `{code.strip().upper()}`\n**Thông báo hệ thống:** {res.get('message') or res.get('error')}",
+                description=f"**Ma qua tang:** `{code.strip().upper()}`\n**Thong bao he thong:** {res.get('message') or res.get('error')}",
                 color=color,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -594,55 +587,53 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
 
             rewards = res.get("rewards", [])
             if rewards:
-                embed.add_field(name="Phần Thưởng Nhận Được", value=" • ".join(rewards), inline=False)
+                embed.add_field(name="Phan Thuong Nhan Duoc", value=" • ".join(rewards), inline=False)
 
             if res.get("uid"):
-                embed.add_field(name="UID Nhận", value=f"`{res.get('uid')}`", inline=True)
+                embed.add_field(name="UID Nhan", value=f"`{res.get('uid')}`", inline=True)
                 embed.add_field(name="Server", value=f"`{res.get('server')}`", inline=True)
 
-            embed.set_footer(text="Elyriax Code Redemption Service", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Code Redemption")
             await interaction.followup.send(embed=embed)
         except ValueError as ve:
             await interaction.followup.send(str(ve))
         except Exception as e:
             logger.error(f"Error /genshin redeem: {e}")
-            await interaction.followup.send(f"❌ Thất bại khi đổi code: {e}")
+            await interaction.followup.send(f"That bai khi doi code: {e}")
 
     # ----------------------------------------------------
     # 7. /genshin link
     # ----------------------------------------------------
-    @genshin_group.command(name="link", description="Liên kết tài khoản Genshin Impact & đồng bộ Elyriax.com")
+    @genshin_group.command(name="link", description="Lien ket tai khoan Genshin Impact (Nhap cookie hoac qua Elyriax)")
     async def genshin_link(self, interaction: discord.Interaction):
         oauth = await fetch_one(
             "SELECT user_id FROM user_oauth_accounts WHERE provider = 'discord' AND provider_user_id = %s",
             (str(interaction.user.id),),
         )
-        sync_status = "✅ Đã đồng bộ với Elyriax.com" if oauth else "⚠️ Chưa liên kết với Elyriax.com"
+        sync_status = "Da lien ket voi Elyriax.com" if oauth else "Chua lien ket voi Elyriax.com"
 
         embed = discord.Embed(
-            title="🔗 LIÊN KẾT & ĐỒNG BỘ TÀI KHOẢN GENSHIN IMPACT",
+            title="Lien Ket Tai Khoan Genshin Impact",
             description=(
-                f"**Trạng thái tài khoản Discord:** `{sync_status}`\n\n"
-                "**Hệ thống cung cấp 2 phương thức liên kết tiện lợi:**\n\n"
-                "1️⃣ **Đồng Bộ Qua Web Elyriax (Khuyên dùng):**\n"
-                "• Bấm nút **[Đồng Bộ Qua Web Elyriax]** bên dưới.\n"
-                "• Ủy quyền Discord trong 1-click. Mọi dữ liệu tài khoản Genshin, số dư ví sẽ được đồng bộ 100% giữa Website và Discord Bot.\n\n"
-                "2️⃣ **Nhập Cookie Trực Tiếp Tại Discord:**\n"
-                "• Bấm nút **[Nhập Cookie Trực Tiếp]** bên dưới.\n"
-                "• Điền Cookie HoYoLAB (`ltuid_v2`, `ltoken_v2`), UID và Server. Dữ liệu được mã hóa bảo mật chuẩn **AES-256-CBC**."
+                f"**Trang thai ket noi:** `{sync_status}`\n\n"
+                "Chon phuong thuc lien ket phu hop:\n\n"
+                "**1. Nhap Cookie HoYoLAB Truc Tiep (Dung cho Bot Discord):**\n"
+                "Nhan nut **[Nhap Cookie HoYoLAB]** ben duoi de mo form dien Cookie (ltuid_v2, ltoken_v2), UID va Server. Du lieu duoc ma hoa AES-256-CBC.\n\n"
+                "**2. Lien Ket Voi Tai Khoan Elyriax.com:**\n"
+                "Su dung lenh `/auth link` de lien ket tai khoan Discord nay voi tai khoan tren web Elyriax.com cua ban."
             ),
             color=COLOR_CYAN,
             timestamp=datetime.now(timezone.utc),
         )
         embed.set_thumbnail(url=GENSHIN_LOGO_URL)
-        embed.set_footer(text="Elyriax Hub • Bảo mật cấp ngân hàng", icon_url=PRIMOGEM_ICON_URL)
+        embed.set_footer(text="Elyriax Genshin System")
 
         await interaction.response.send_message(embed=embed, view=LinkOptionsView(), ephemeral=True)
 
     # ----------------------------------------------------
     # 8. /genshin accounts
     # ----------------------------------------------------
-    @genshin_group.command(name="accounts", description="Xem danh sách các tài khoản Genshin đã liên kết")
+    @genshin_group.command(name="accounts", description="Xem danh sach cac tai khoan Genshin da lien ket")
     async def genshin_accounts(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -652,7 +643,7 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             )
             if not oauth:
                 await interaction.followup.send(
-                    "❌ Bạn chưa liên kết tài khoản nào! Hãy dùng `/genshin link` để thêm tài khoản.",
+                    "Ban chua lien ket tai khoan nao. Hay dung `/genshin link` de them tai khoan.",
                     ephemeral=True,
                 )
                 return
@@ -660,41 +651,41 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             accounts = await get_accounts(oauth["user_id"])
             if not accounts:
                 await interaction.followup.send(
-                    "⚠️ Bạn chưa có tài khoản Genshin nào! Hãy dùng `/genshin link` để liên kết.",
+                    "Ban chua co tai khoan Genshin nao. Hay dung `/genshin link` de lien ket.",
                     ephemeral=True,
                 )
                 return
 
             embed = discord.Embed(
-                title="📋 DANH SÁCH TÀI KHOẢN GENSHIN ĐÃ LIÊN KẾT",
-                description=f"Tìm thấy **{len(accounts)} tài khoản** thuộc người dùng **{interaction.user.display_name}**:",
+                title="Danh Sach Tai Khoan Genshin Da Lien Ket",
+                description=f"Tim thay {len(accounts)} tai khoan cua **{interaction.user.display_name}**:",
                 color=COLOR_BLUE,
                 timestamp=datetime.now(timezone.utc),
             )
             embed.set_thumbnail(url=GENSHIN_LOGO_URL)
 
             for acc in accounts:
-                is_def = "⭐ **[Mặc định]**" if acc.get("is_default") else ""
-                checkin_status = "✅ Bật" if acc.get("auto_checkin") else "❌ Tắt"
+                is_def = "[Mac dinh]" if acc.get("is_default") else ""
+                checkin_status = "Bat" if acc.get("auto_checkin") else "Tat"
                 val = (
-                    f"• **UID:** `{acc.get('uid')}`\n"
-                    f"• **Máy chủ:** `{acc.get('server', '').upper()}`\n"
-                    f"• **Auto Check-in:** {checkin_status}\n"
-                    f"• **Account ID:** `{acc.get('id')}`"
+                    f"- **UID:** `{acc.get('uid')}`\n"
+                    f"- **May chu:** `{acc.get('server', '').upper()}`\n"
+                    f"- **Auto Check-in:** {checkin_status}\n"
+                    f"- **Account ID:** `{acc.get('id')}`"
                 )
-                embed.add_field(name=f"🎮 {acc.get('nickname', 'Nhà Khai Phá')} {is_def}", value=val, inline=False)
+                embed.add_field(name=f"{acc.get('nickname', 'Nha Khai Pha')} {is_def}".strip(), value=val, inline=False)
 
-            embed.set_footer(text="Dùng /genshin switch <id> để đổi tài khoản mặc định")
+            embed.set_footer(text="Dung /genshin switch <id> de doi tai khoan mac dinh")
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Error /genshin accounts: {e}")
-            await interaction.followup.send(f"❌ Lỗi: {e}", ephemeral=True)
+            await interaction.followup.send(f"Loi: {e}", ephemeral=True)
 
     # ----------------------------------------------------
     # 9. /genshin switch <account_id>
     # ----------------------------------------------------
-    @genshin_group.command(name="switch", description="Đặt tài khoản Genshin làm tài khoản mặc định")
-    @app_commands.describe(account_id="ID tài khoản trong lệnh /genshin accounts")
+    @genshin_group.command(name="switch", description="Dat tai khoan Genshin lam tai khoan mac dinh")
+    @app_commands.describe(account_id="ID tai khoan trong lenh /genshin accounts")
     async def genshin_switch(self, interaction: discord.Interaction, account_id: int):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -703,22 +694,22 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
                 (str(interaction.user.id),),
             )
             if not oauth:
-                await interaction.followup.send("❌ Bạn chưa liên kết tài khoản nào.", ephemeral=True)
+                await interaction.followup.send("Ban chua lien ket tai khoan nao.", ephemeral=True)
                 return
 
             await update_account(oauth["user_id"], account_id, {"is_default": True})
             await interaction.followup.send(
-                f"✅ Đã đặt tài khoản ID `{account_id}` làm tài khoản mặc định thành công!",
+                f"Da dat tai khoan ID `{account_id}` lam tai khoan mac dinh thanh cong.",
                 ephemeral=True,
             )
         except Exception as e:
             logger.error(f"Error /genshin switch: {e}")
-            await interaction.followup.send(f"❌ Lỗi khi chuyển tài khoản: {e}", ephemeral=True)
+            await interaction.followup.send(f"Loi khi chuyen tai khoan: {e}", ephemeral=True)
 
     # ----------------------------------------------------
     # 10. /genshin sync
     # ----------------------------------------------------
-    @genshin_group.command(name="sync", description="Kiểm tra trạng thái liên kết & đồng bộ với Elyriax.com")
+    @genshin_group.command(name="sync", description="Kiem tra trang thai lien ket va dong bo voi Elyriax.com")
     async def genshin_sync(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -727,28 +718,18 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
                 (str(interaction.user.id),),
             )
             if not oauth:
-                oauth_url = f"{settings.BASE_URL}/v1/auth/login/discord"
-                view = discord.ui.View()
-                view.add_item(
-                    discord.ui.Button(
-                        label="Đăng Nhập & Đồng Bộ Với Elyriax",
-                        url=oauth_url,
-                        style=discord.ButtonStyle.link,
-                        emoji="🔗",
-                    )
-                )
                 embed = discord.Embed(
-                    title="⚠️ TÀI KHOẢN DISCORD CHƯA ĐỒNG BỘ VỚI ELYRIAX",
+                    title="Tai Khoan Discord Chua Dong Bo Voi Elyriax",
                     description=(
-                        f"Tài khoản Discord **{interaction.user.display_name}** chưa được liên kết với tài khoản trên **Elyriax.com**.\n\n"
-                        "👉 **Cách 1 (Nhanh nhất):** Bấm nút **[Đăng Nhập & Đồng Bộ Với Elyriax]** bên dưới để ủy quyền Discord 1-Click.\n"
-                        "👉 **Cách 2:** Dùng lệnh `/genshin link` để nhập Cookie HoYoLAB trực tiếp ngay trong Discord."
+                        f"Tai khoan Discord **{interaction.user.display_name}** chua duoc lien ket voi tai khoan tren **Elyriax.com**.\n\n"
+                        "- De lien ket tai khoan web san co cua ban, su dung lenh `/auth link`.\n"
+                        "- De them tai khoan Genshin bang Cookie HoYoLAB, su dung lenh `/genshin link`."
                     ),
                     color=COLOR_GOLD,
                     timestamp=datetime.now(timezone.utc),
                 )
                 embed.set_thumbnail(url=GENSHIN_LOGO_URL)
-                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
             user_id = oauth["user_id"]
@@ -756,8 +737,8 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             accounts = await get_accounts(user_id)
 
             embed = discord.Embed(
-                title="✅ TÀI KHOẢN ĐÃ ĐƯỢC ĐỒNG BỘ VỚI ELYRIAX.COM",
-                description=f"Tài khoản Discord **{interaction.user.display_name}** đã được kết nối với hệ thống Elyriax.",
+                title="Tai Khoan Da Duoc Dong Bo Voi Elyriax.com",
+                description=f"Tai khoan Discord **{interaction.user.display_name}** da duoc ket noi voi he thong Elyriax.",
                 color=COLOR_GREEN,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -766,32 +747,29 @@ class GenshinCog(commands.Cog, name="Genshin Impact"):
             else:
                 embed.set_thumbnail(url=GENSHIN_LOGO_URL)
 
-            embed.add_field(name="Elyriax User ID", value=f"`#{user_id}`", inline=True)
-            embed.add_field(name="Tên tài khoản Web", value=f"**{user.get('username') if user else 'N/A'}**", inline=True)
-            embed.add_field(name="Số tài khoản Genshin", value=f"**{len(accounts)}** tài khoản", inline=True)
+            embed.add_field(name="Elyriax User ID", value=f"#{user_id}", inline=True)
+            embed.add_field(name="Ten Tai Khoan Web", value=user.get("username", "N/A") if user else "N/A", inline=True)
+            embed.add_field(name="So Tai Khoan Genshin", value=f"{len(accounts)} tai khoan", inline=True)
             embed.add_field(
-                name="🌐 Quản lý trên Website",
-                value=f"Bạn có thể quản lý nạp tiền, sản phẩm, và tài khoản Genshin tại [{settings.FRONTEND_URL}]({settings.FRONTEND_URL}).",
+                name="Quan Ly Tren Website",
+                value=f"Quan ly tai khoan va san pham tai [{settings.FRONTEND_URL}]({settings.FRONTEND_URL}).",
                 inline=False,
             )
-            embed.set_footer(text="Elyriax Sync Service • Dữ liệu thời gian thực", icon_url=GENSHIN_LOGO_URL)
+            embed.set_footer(text="Elyriax Sync Service")
 
             view = discord.ui.View()
             view.add_item(
                 discord.ui.Button(
-                    label="Mở Website Elyriax",
+                    label="Mo Website Elyriax",
                     url=settings.FRONTEND_URL,
                     style=discord.ButtonStyle.link,
-                    emoji="🌐",
                 )
             )
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         except Exception as e:
             logger.error(f"Error /genshin sync: {e}")
-            await interaction.followup.send(f"❌ Lỗi kiểm tra đồng bộ: {e}", ephemeral=True)
+            await interaction.followup.send(f"Loi kiem tra dong bo: {e}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GenshinCog(bot))
-
-

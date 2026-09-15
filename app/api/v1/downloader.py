@@ -11,7 +11,7 @@ import httpx
 
 from app.schemas.downloader import DownloadRequest, MediaInfoResponse
 from app.services.downloader import downloader_service
-from app.core.security import decode_jwt_token
+from app.core.security import decode_stream_token
 
 router = APIRouter()
 
@@ -113,7 +113,7 @@ async def proxy_media_stream(
 
     if token:
         try:
-            payload = decode_jwt_token(token)
+            payload = decode_stream_token(token)
             target_url = payload.get("url")
             file_title = payload.get("title") or file_title
             file_ext = payload.get("ext") or file_ext

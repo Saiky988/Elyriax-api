@@ -12,7 +12,7 @@ import httpx
 import yt_dlp
 
 from app.core.config import settings
-from app.core.security import create_jwt_token, decode_jwt_token
+from app.core.security import create_stream_token, decode_stream_token
 
 logger = logging.getLogger("DownloaderService")
 
@@ -150,7 +150,7 @@ class DownloaderService:
         }
         if convert_audio:
             payload["convert_audio"] = convert_audio
-        token = create_jwt_token(payload, expires_days=30)
+        token = create_stream_token(payload)
         route = "direct" if disposition == "attachment" else "stream"
         return f"{settings.BASE_URL}/v1/downloader/{route}?token={token}"
 
@@ -705,7 +705,7 @@ class DownloaderService:
                 first_dl = info["medias"][0]["download_url"]
                 match = re.search(r"token=([^&]+)", first_dl)
                 if match:
-                    decoded = decode_jwt_token(match.group(1))
+                    decoded = decode_stream_token(match.group(1))
                     raw_target_url = decoded.get("url")
 
             if raw_target_url:

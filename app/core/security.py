@@ -55,6 +55,73 @@ def create_jwt_token(payload: Dict[str, Any], expires_days: int = 365) -> str:
 def decode_jwt_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
 
+_STREAM_TOKEN_CACHE: Dict[str, Any] = {}
+_TOKEN_DB_PATH = None
+
+def _get_token_db_path():
+    global _TOKEN_DB_PATH
+    if _TOKEN_DB_PATH is None:
+        from pathlib import Path
+        _TOKEN_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "stream_tokens.db"
+        _TOKEN_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        import sqlite3
+        with sqlite3.connect(_TOKEN_DB_PATH) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS stream_tokens (
+                    token_id TEXT PRIMARY KEY,
+                    payload_json TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_stream_tokens_time ON stream_tokens (created_at)")
+    return _TOKEN_DB_PATH
+
+def create_stream_token(payload: Dict[str, Any]) -> str:
+    """Tao short token ID (12 ky tu) de URL ngan gon va khong vuot qua gioi han 512 ky tu cua Discord."""
+    import json
+    import time
+    token_id = secrets.token_urlsafe(9)
+    _STREAM_TOKEN_CACHE[token_id] = payload
+
+    try:
+        db_path = _get_token_db_path()
+        import sqlite3
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO stream_tokens (token_id, payload_json, created_at) VALUES (?, ?, ?)",
+                (token_id, json.dumps(payload, ensure_ascii=False), time.time()),
+            )
+    except Exception:
+        pass
+
+    return token_id
+
+def decode_stream_token(token_str: str) -> Dict[str, Any]:
+    """Giai ma token stream: ho tro ca short token ID lan JWT legacy."""
+    if not token_str:
+        raise ValueError("Token không được để trống.")
+
+    if token_str in _STREAM_TOKEN_CACHE:
+        return _STREAM_TOKEN_CACHE[token_str]
+
+    try:
+        db_path = _get_token_db_path()
+        import sqlite3
+        import json
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute("SELECT payload_json FROM stream_tokens WHERE token_id = ?", (token_str,)).fetchone()
+            if row:
+                data = json.loads(row[0])
+                _STREAM_TOKEN_CACHE[token_str] = data
+                return data
+    except Exception:
+        pass
+
+    if token_str.startswith("ey"):
+        return decode_jwt_token(token_str)
+
+    raise ValueError("Token stream không hợp lệ hoặc đã hết hạn.")
+
 def generate_transaction_code() -> str:
     raw = secrets.token_bytes(4)
     b64 = base64.b64encode(raw).decode("ascii")

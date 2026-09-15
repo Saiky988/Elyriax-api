@@ -126,20 +126,24 @@ def create_media_view(data: dict) -> discord.ui.View:
     cdn_url = data.get("cdn_url")
     medias = data.get("medias", [])
 
+    def _safe_add_btn(lbl: str, u: Optional[str], row: int):
+        if u and u.startswith("http") and len(u) <= 512:
+            view.add_item(discord.ui.Button(label=lbl, url=u, style=discord.ButtonStyle.link, row=row))
+
     # Hang 0: Cac lua chon tai chinh
     if download_url:
         btn_label = "Tải Video (MP4)" if is_video else "Tải Ảnh (HD)"
-        view.add_item(discord.ui.Button(label=btn_label, url=download_url, style=discord.ButtonStyle.link, row=0))
+        _safe_add_btn(btn_label, download_url, row=0)
 
     if is_video and audio_url:
-        view.add_item(discord.ui.Button(label="Tải Audio (MP3)", url=audio_url, style=discord.ButtonStyle.link, row=0))
+        _safe_add_btn("Tải Audio (MP3)", audio_url, row=0)
 
     if is_video and audio_wav_url:
-        view.add_item(discord.ui.Button(label="Tải Audio (WAV)", url=audio_wav_url, style=discord.ButtonStyle.link, row=0))
+        _safe_add_btn("Tải Audio (WAV)", audio_wav_url, row=0)
 
     if stream_url:
         lbl_stream = "Xem Trực Tuyến" if is_video else "Xem Ảnh Gốc"
-        view.add_item(discord.ui.Button(label=lbl_stream, url=stream_url, style=discord.ButtonStyle.link, row=0))
+        _safe_add_btn(lbl_stream, stream_url, row=0)
 
     # Hang 1: Cac phien ban chat luong phu / Link goc CDN
     btn_count_row1 = 0
@@ -149,11 +153,11 @@ def create_media_view(data: dict) -> discord.ui.View:
             q_label = vm.get("label") or vm.get("quality") or "Video"
             q_url = vm.get("download_url")
             if q_url and btn_count_row1 < 3:
-                view.add_item(discord.ui.Button(label=f"Bản {q_label}", url=q_url, style=discord.ButtonStyle.link, row=1))
+                _safe_add_btn(f"Bản {q_label}", q_url, row=1)
                 btn_count_row1 += 1
 
-    if cdn_url and cdn_url.startswith("http") and btn_count_row1 < 4:
-        view.add_item(discord.ui.Button(label="Link Gốc (CDN)", url=cdn_url, style=discord.ButtonStyle.link, row=1))
+    if cdn_url and btn_count_row1 < 4:
+        _safe_add_btn("Link Gốc (CDN)", cdn_url, row=1)
 
     return view
 
@@ -304,3 +308,4 @@ class DownloaderCog(commands.Cog, name="Downloader"):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(DownloaderCog(bot))
+

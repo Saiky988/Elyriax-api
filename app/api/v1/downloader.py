@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import shutil
@@ -108,6 +109,8 @@ async def proxy_media_stream(
     upstream_headers = {}
     disposition = "attachment" if request.url.path.endswith("/direct") else "inline"
 
+    convert_audio = None
+
     if token:
         try:
             payload = decode_jwt_token(token)
@@ -115,6 +118,7 @@ async def proxy_media_stream(
             file_title = payload.get("title") or file_title
             file_ext = payload.get("ext") or file_ext
             upstream_headers = payload.get("headers") or {}
+            convert_audio = payload.get("convert_audio")
             if "disposition" in payload:
                 disposition = payload["disposition"]
         except Exception as e:
@@ -141,6 +145,84 @@ async def proxy_media_stream(
     else:
         raise HTTPException(status_code=400, detail="Thieu tham so 'token' hoac 'url'.")
 
+    # Ho tro query param 'format' de convert dinh dang am thanh (mp3, wav)
+    req_format = request.query_params.get("format")
+    if req_format in ["mp3", "wav"]:
+        convert_audio = req_format
+        file_ext = req_format
+
+    # 1. Neu can convert sang MP3 hoac WAV bang FFmpeg
+    if convert_audio in ["mp3", "wav"]:
+        ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
+        if not os.path.exists(ffmpeg_bin) and not shutil.which("ffmpeg"):
+            raise HTTPException(status_code=500, detail="He thong chua duoc cai dat ffmpeg de convert audio.")
+
+        header_str = "".join(f"{k}: {v}\r\n" for k, v in upstream_headers.items())
+        cmd = [
+            ffmpeg_bin,
+            "-nostdin",
+            "-loglevel", "error",
+        ]
+        if header_str:
+            cmd.extend(["-headers", header_str])
+
+        cmd.extend(["-i", target_url, "-vn"])
+
+        if convert_audio == "mp3":
+            cmd.extend(["-acodec", "libmp3lame", "-b:a", "192k", "-f", "mp3", "pipe:1"])
+            content_type = "audio/mpeg"
+        else:
+            cmd.extend(["-acodec", "pcm_s16le", "-f", "wav", "pipe:1"])
+            content_type = "audio/wav"
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Loi khi khoi chay ffmpeg: {e}")
+
+        ascii_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", file_title).strip("_") or "audio"
+        encoded_filename = quote(f"{file_title}.{convert_audio}")
+        content_disposition = f'{disposition}; filename="{ascii_title}.{convert_audio}"; filename*=UTF-8\'\'{encoded_filename}'
+
+        resp_headers = {
+            "Content-Disposition": content_disposition,
+            "Content-Type": content_type,
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Expose-Headers": "Content-Disposition, Content-Type",
+        }
+
+        async def ffmpeg_stream():
+            try:
+                while True:
+                    chunk = await proc.stdout.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+                await proc.wait()
+            except asyncio.CancelledError:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+                raise
+            finally:
+                if proc.returncode is None:
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        pass
+
+        return StreamingResponse(
+            ffmpeg_stream(),
+            status_code=200,
+            headers=resp_headers,
+        )
+
+    # 2. Proxy truc tiep stream goc (MP4, cover image...) qua HTTPX
     # Range header forwarding
     client_range = request.headers.get("range")
     if client_range:

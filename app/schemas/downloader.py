@@ -9,6 +9,7 @@ class DownloadRequest(BaseModel):
 class MediaQualityItem(BaseModel):
     type: str = "video"
     label: str
+    ext: Optional[str] = None
     quality: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
@@ -32,5 +33,6 @@ class MediaInfoResponse(BaseModel):
     is_video: bool = True
     medias: Optional[List[MediaQualityItem]] = []
     audio_url: Optional[str] = None
+    audio_wav_url: Optional[str] = None
     images: Optional[List[str]] = []
     original_url: Optional[str] = None

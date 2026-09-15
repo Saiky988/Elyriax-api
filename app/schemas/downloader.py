@@ -15,6 +15,7 @@ class MediaQualityItem(BaseModel):
     bitrate: Optional[int] = None
     download_url: str
     stream_url: Optional[str] = None
+    cdn_url: Optional[str] = None
 
 
 class MediaInfoResponse(BaseModel):
@@ -27,6 +28,7 @@ class MediaInfoResponse(BaseModel):
     duration: float = 0.0
     download_url: Optional[str] = None
     stream_url: Optional[str] = None
+    cdn_url: Optional[str] = None
     is_video: bool = True
     medias: Optional[List[MediaQualityItem]] = []
     audio_url: Optional[str] = None

@@ -123,6 +123,7 @@ class DownloaderService:
 
                 best_direct_url = None
                 best_stream_url = None
+                best_cdn_url = None
 
                 for q in qualities:
                     raw_q_url = q.get("url")
@@ -135,6 +136,7 @@ class DownloaderService:
                     if not best_direct_url:
                         best_direct_url = direct_dl
                         best_stream_url = inline_stream
+                        best_cdn_url = raw_q_url
 
                     medias.append({
                         "type": "video",
@@ -145,6 +147,7 @@ class DownloaderService:
                         "bitrate": q.get("bitrate"),
                         "download_url": direct_dl,
                         "stream_url": inline_stream,
+                        "cdn_url": raw_q_url,
                     })
 
                 # Proxy cover image if available
@@ -172,6 +175,7 @@ class DownloaderService:
                     "duration": duration,
                     "download_url": best_direct_url or (images[0] if images else None),
                     "stream_url": best_stream_url,
+                    "cdn_url": best_cdn_url,
                     "is_video": is_video,
                     "medias": medias,
                     "audio_url": audio_url,
@@ -185,41 +189,63 @@ class DownloaderService:
     async def _parse_phimtat(self, url: str) -> Optional[Dict[str, Any]]:
         """Goi Gateway Phimtat / SnapVideo de phan tich video da nen tang (TikTok, Twitter, FB, Insta...)."""
         try:
-            b64_url = base64.b64encode(url.encode("utf-8")).decode("utf-8")
-            inner_url = (
-                f"https://api.phimtat.vn/json/snapvideo.json"
-                f"?api-key=JILx9BLUzuCnwpXaSAygF9X10hIW3rNN"
-                f"&lang=vi&ver=7&ask_format=false&show_menu=false&skip_update=true&b64={b64_url}"
-            )
-            b64_fetch = base64.b64encode(inner_url.encode("utf-8")).decode("utf-8")
-            gateway_url = f"https://api.phimtat.vn/snapvideo/red64.php?url={b64_fetch}"
-
             req_headers = {"User-Agent": IOS_UA, "Accept": "application/json"}
 
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                resp = await client.get(gateway_url, headers=req_headers)
-                if resp.status_code != 200:
-                    logger.warning(f"Phimtat gateway returned status {resp.status_code}")
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+                async def _fetch_snap(target_u: str):
+                    b64 = base64.b64encode(target_u.encode("utf-8")).decode("utf-8")
+                    gw = f"https://api.phimtat.vn/snapvideo/red64.php?url={b64}"
+                    for attempt in range(2):
+                        r = await client.get(gw, headers=req_headers)
+                        if r.status_code == 200:
+                            try:
+                                return r.json()
+                            except Exception:
+                                return None
+                        elif r.status_code == 429:
+                            await asyncio.sleep(1.2)
+                            continue
                     return None
 
-                data = resp.json()
+                current_target = url
+                data = None
 
-                # Xu ly Handshake dieu khoan neu co
-                if "✅ Đồng ý" in data or "agree" in data:
-                    agree_url = data.get("✅ Đồng ý") or data.get("agree")
-                    b64_agree = base64.b64encode(agree_url.encode("utf-8")).decode("utf-8")
-                    agree_resp = await client.get(f"https://api.phimtat.vn/snapvideo/red64.php?url={b64_agree}", headers=req_headers)
-                    if agree_resp.status_code == 200:
-                        agree_data = agree_resp.json()
-                        reload_url = agree_data.get("reload")
-                        if reload_url:
-                            b64_reload = base64.b64encode(reload_url.encode("utf-8")).decode("utf-8")
-                            final_resp = await client.get(f"https://api.phimtat.vn/snapvideo/red64.php?url={b64_reload}", headers=req_headers)
-                            if final_resp.status_code == 200:
-                                data = final_resp.json()
+                # Tu dong dong y dieu khoan va reload lay link video CDN thuc te (toi da 5 vong lap)
+                for _ in range(5):
+                    b64_url = base64.b64encode(current_target.encode("utf-8")).decode("utf-8")
+                    api_url = (
+                        f"https://api.phimtat.vn/json/snapvideo.json?"
+                        f"api-key=JILx9BLUzuCnwpXaSAygF9X10hIW3rNN"
+                        f"&lang=vi&ver=7&ask_format=false&show_menu=false&skip_update=true&b64={b64_url}"
+                    )
+                    data = await _fetch_snap(api_url)
+                    if not data or not isinstance(data, dict):
+                        break
+
+                    # Xu ly Pop-up dieu khoan neu xuat hien
+                    medias = data.get("medias", {})
+                    agree_url = None
+                    if isinstance(medias, dict):
+                        agree_url = medias.get("✅ Đồng ý") or medias.get("agree")
+                    if not agree_url:
+                        agree_url = data.get("✅ Đồng ý") or data.get("agree")
+
+                    if agree_url:
+                        agree_res = await _fetch_snap(agree_url)
+                        if agree_res and isinstance(agree_res, dict) and "reload" in agree_res:
+                            current_target = agree_res["reload"]
+                            await asyncio.sleep(0.5)
+                            continue
+                        elif agree_res and isinstance(agree_res, dict) and isinstance(agree_res.get("medias"), dict) and "✅ Đồng ý" not in agree_res["medias"]:
+                            data = agree_res
+                            break
+                    break
+
+                if not data or not isinstance(data, dict):
+                    return None
 
                 raw_medias = data.get("medias", {})
-                if not raw_medias and not data.get("title"):
+                if not isinstance(raw_medias, dict) or not raw_medias or "✅ Đồng ý" in raw_medias or data.get("source") == "notice":
                     return None
 
                 title = data.get("title", "video").strip()
@@ -229,10 +255,11 @@ class DownloaderService:
                 media_items = []
                 best_direct_url = None
                 best_stream_url = None
+                best_cdn_url = None
                 audio_url = None
 
                 for label, raw_media_url in raw_medias.items():
-                    if not raw_media_url:
+                    if not raw_media_url or not isinstance(raw_media_url, str) or raw_media_url.startswith("{{"):
                         continue
 
                     # Lam sach label (loai bo cac icon emoji khoi label)
@@ -251,6 +278,7 @@ class DownloaderService:
                     elif not is_audio and not best_direct_url:
                         best_direct_url = direct_dl
                         best_stream_url = inline_stream
+                        best_cdn_url = raw_media_url
 
                     media_items.append({
                         "type": media_type,
@@ -261,7 +289,11 @@ class DownloaderService:
                         "bitrate": None,
                         "download_url": direct_dl,
                         "stream_url": inline_stream,
+                        "cdn_url": raw_media_url,
                     })
+
+                if not media_items:
+                    return None
 
                 direct_cover = self.generate_direct_link(thumbnail, f"{title}_cover", "jpg") if thumbnail else None
 
@@ -273,9 +305,10 @@ class DownloaderService:
                     "author": data.get("author", "Creator"),
                     "cover": direct_cover or thumbnail,
                     "duration": float(data.get("duration", 0.0)),
-                    "download_url": best_direct_url or (media_items[0]["download_url"] if media_items else None),
+                    "download_url": best_direct_url or media_items[0]["download_url"],
                     "stream_url": best_stream_url,
-                    "is_video": True,
+                    "cdn_url": best_cdn_url or raw_medias.get(list(raw_medias.keys())[0]),
+                    "is_video": any(m["type"] == "video" for m in media_items),
                     "medias": media_items,
                     "audio_url": audio_url,
                     "images": [],
@@ -300,6 +333,7 @@ class DownloaderService:
             duration = float(info.get("duration", 0.0) or 0.0)
 
             download_url = info.get("url")
+            raw_cdn_url = download_url
             medias = []
 
             if "formats" in info:
@@ -311,6 +345,8 @@ class DownloaderService:
                     q_label = fmt.get("format_note") or f"{fmt.get('height', 'HD')}p"
                     direct_dl = self.generate_direct_link(f_url, title, "mp4", disposition="attachment")
                     inline_stream = self.generate_direct_link(f_url, title, "mp4", disposition="inline")
+                    if not raw_cdn_url:
+                        raw_cdn_url = f_url
                     medias.append({
                         "type": "video",
                         "label": q_label,
@@ -320,6 +356,7 @@ class DownloaderService:
                         "bitrate": fmt.get("tbr"),
                         "download_url": direct_dl,
                         "stream_url": inline_stream,
+                        "cdn_url": f_url,
                     })
 
             if not download_url and medias:
@@ -339,6 +376,7 @@ class DownloaderService:
                 "duration": duration,
                 "download_url": download_url,
                 "stream_url": medias[-1]["stream_url"] if medias else None,
+                "cdn_url": raw_cdn_url,
                 "is_video": True,
                 "medias": medias,
                 "audio_url": None,

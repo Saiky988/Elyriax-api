@@ -71,6 +71,65 @@ class DownloaderService:
             return "bilibili"
         return "general"
 
+    @staticmethod
+    def detect_media_type(label: str, url: str) -> Tuple[str, str]:
+        """
+        Nhan dien media_type ('video', 'audio', 'image') va ext ('mp4', 'mp3', 'jpg', etc.)
+        chinh xac dua vao ca URL va label, tranh nham lan anh voi video.
+        """
+        parsed = urlparse(url)
+        path_lower = parsed.path.lower()
+        label_lower = (label or "").lower()
+
+        # 1. Kiem tra theo duoi URL truoc (do chinh xac tuyet doi)
+        if re.search(r"\.(jpg|jpeg)(\?|$)", path_lower):
+            return "image", "jpg"
+        if re.search(r"\.png(\?|$)", path_lower):
+            return "image", "png"
+        if re.search(r"\.webp(\?|$)", path_lower):
+            return "image", "webp"
+        if re.search(r"\.gif(\?|$)", path_lower):
+            return "image", "gif"
+
+        if re.search(r"\.mp3(\?|$)", path_lower):
+            return "audio", "mp3"
+        if re.search(r"\.wav(\?|$)", path_lower):
+            return "audio", "wav"
+        if re.search(r"\.(m4a|aac|flac|ogg)(\?|$)", path_lower):
+            ext_m = re.search(r"\.(m4a|aac|flac|ogg)(\?|$)", path_lower)
+            return "audio", ext_m.group(1)
+
+        if re.search(r"\.mp4(\?|$)", path_lower):
+            return "video", "mp4"
+        if re.search(r"\.(webm|mov|mkv|avi|flv)(\?|$)", path_lower):
+            ext_m = re.search(r"\.(webm|mov|mkv|avi|flv)(\?|$)", path_lower)
+            return "video", ext_m.group(1)
+
+        # 2. Kiem tra theo keywords trong label
+        img_keywords = ["jpg", "jpeg", "png", "webp", "image", "ảnh", "photo", "pic", "picture", "wallpaper", "avatar", "hinh"]
+        if any(k in label_lower for k in img_keywords):
+            if "png" in label_lower:
+                return "image", "png"
+            if "webp" in label_lower:
+                return "image", "webp"
+            return "image", "jpg"
+
+        audio_keywords = ["mp3", "audio", "âm thanh", "sound", "nhạc", "wav", "m4a", "aac", "flac"]
+        if any(k in label_lower for k in audio_keywords):
+            if "wav" in label_lower:
+                return "audio", "wav"
+            return "audio", "mp3"
+
+        video_keywords = ["mp4", "video", "hd", "sd", "1080", "720", "480", "fhd", "uhd", "4k", "watermark", "logo", "phim"]
+        if any(k in label_lower for k in video_keywords):
+            return "video", "mp4"
+
+        # 3. Kiem tra hostname dac thu
+        if "pinimg.com" in (parsed.netloc or "").lower():
+            return "image", "jpg"
+
+        return "video", "mp4"
+
     def generate_direct_link(
         self,
         upstream_url: str,
@@ -157,17 +216,38 @@ class DownloaderService:
                 # Proxy cover image if available
                 direct_cover = self.generate_direct_link(cover, f"{title}_cover", "jpg", headers=req_headers) if cover else None
 
-                # Audio URL (MP3 & WAV)
-                audio_source_url = data.get("audio_url") or best_cdn_url
+                # Images list if album
+                images = []
+                for idx, img_url in enumerate(data.get("images", []), 1):
+                    img_dl = self.generate_direct_link(img_url, f"{title}_image_{idx}", "jpg", headers=req_headers, disposition="attachment")
+                    images.append(img_dl)
+                    if not qualities:
+                        medias.append({
+                            "type": "image",
+                            "label": f"Ảnh {idx}",
+                            "ext": "jpg",
+                            "quality": "HD",
+                            "width": None,
+                            "height": None,
+                            "bitrate": None,
+                            "download_url": img_dl,
+                            "stream_url": self.generate_direct_link(img_url, f"{title}_image_{idx}", "jpg", headers=req_headers, disposition="inline"),
+                            "cdn_url": img_url,
+                        })
+
+                has_video = bool(qualities)
+                is_video = (data.get("media_type") == "video") or has_video
+
+                # Audio URL: CHỈ TAO KHI CO AUDIO GOC HOAC LA VIDEO
                 audio_url = None
                 audio_wav_url = None
-                if audio_source_url:
-                    is_native_audio = bool(data.get("audio_url"))
-                    convert_mp3 = None if is_native_audio else "mp3"
-                    audio_url = self.generate_direct_link(audio_source_url, f"{title}_audio", "mp3", headers=req_headers, disposition="attachment", convert_audio=convert_mp3)
-                    audio_mp3_stream = self.generate_direct_link(audio_source_url, f"{title}_audio", "mp3", headers=req_headers, disposition="inline", convert_audio=convert_mp3)
-                    audio_wav_url = self.generate_direct_link(audio_source_url, f"{title}_audio", "wav", headers=req_headers, disposition="attachment", convert_audio="wav")
-                    audio_wav_stream = self.generate_direct_link(audio_source_url, f"{title}_audio", "wav", headers=req_headers, disposition="inline", convert_audio="wav")
+
+                if data.get("audio_url"):
+                    # Co file audio goc tu upstream
+                    audio_url = self.generate_direct_link(data["audio_url"], f"{title}_audio", "mp3", headers=req_headers, disposition="attachment")
+                    audio_mp3_stream = self.generate_direct_link(data["audio_url"], f"{title}_audio", "mp3", headers=req_headers, disposition="inline")
+                    audio_wav_url = self.generate_direct_link(data["audio_url"], f"{title}_audio", "wav", headers=req_headers, disposition="attachment", convert_audio="wav")
+                    audio_wav_stream = self.generate_direct_link(data["audio_url"], f"{title}_audio", "wav", headers=req_headers, disposition="inline", convert_audio="wav")
 
                     medias.append({
                         "type": "audio",
@@ -179,7 +259,7 @@ class DownloaderService:
                         "bitrate": 192000,
                         "download_url": audio_url,
                         "stream_url": audio_mp3_stream,
-                        "cdn_url": data.get("audio_url") or best_cdn_url,
+                        "cdn_url": data["audio_url"],
                     })
                     medias.append({
                         "type": "audio",
@@ -191,15 +271,39 @@ class DownloaderService:
                         "bitrate": None,
                         "download_url": audio_wav_url,
                         "stream_url": audio_wav_stream,
-                        "cdn_url": data.get("audio_url") or best_cdn_url,
+                        "cdn_url": data["audio_url"],
                     })
+                elif has_video and best_cdn_url:
+                    # La video nhung chua co audio rieng: convert tu video sang MP3 va WAV
+                    audio_url = self.generate_direct_link(best_cdn_url, f"{title}_audio", "mp3", headers=req_headers, disposition="attachment", convert_audio="mp3")
+                    audio_mp3_stream = self.generate_direct_link(best_cdn_url, f"{title}_audio", "mp3", headers=req_headers, disposition="inline", convert_audio="mp3")
+                    audio_wav_url = self.generate_direct_link(best_cdn_url, f"{title}_audio", "wav", headers=req_headers, disposition="attachment", convert_audio="wav")
+                    audio_wav_stream = self.generate_direct_link(best_cdn_url, f"{title}_audio", "wav", headers=req_headers, disposition="inline", convert_audio="wav")
 
-                # Images list if album
-                images = []
-                for idx, img_url in enumerate(data.get("images", []), 1):
-                    images.append(self.generate_direct_link(img_url, f"{title}_image_{idx}", "jpg", headers=req_headers))
-
-                is_video = (data.get("media_type") == "video") or bool(medias)
+                    medias.append({
+                        "type": "audio",
+                        "label": "Audio MP3",
+                        "ext": "mp3",
+                        "quality": "192kbps",
+                        "width": None,
+                        "height": None,
+                        "bitrate": 192000,
+                        "download_url": audio_url,
+                        "stream_url": audio_mp3_stream,
+                        "cdn_url": best_cdn_url,
+                    })
+                    medias.append({
+                        "type": "audio",
+                        "label": "Audio WAV",
+                        "ext": "wav",
+                        "quality": "Lossless",
+                        "width": None,
+                        "height": None,
+                        "bitrate": None,
+                        "download_url": audio_wav_url,
+                        "stream_url": audio_wav_stream,
+                        "cdn_url": best_cdn_url,
+                    })
 
                 return {
                     "status": "success",
@@ -210,8 +314,8 @@ class DownloaderService:
                     "cover": direct_cover or cover,
                     "duration": duration,
                     "download_url": best_direct_url or (images[0] if images else None),
-                    "stream_url": best_stream_url,
-                    "cdn_url": best_cdn_url,
+                    "stream_url": best_stream_url or (images[0] if images else None),
+                    "cdn_url": best_cdn_url or (data.get("images", [None])[0]),
                     "is_video": is_video,
                     "medias": medias,
                     "audio_url": audio_url,
@@ -285,8 +389,8 @@ class DownloaderService:
                 if not isinstance(raw_medias, dict) or not raw_medias or "✅ Đồng ý" in raw_medias or data.get("source") == "notice":
                     return None
 
-                title = data.get("title", "video").strip()
-                source = data.get("source", "video")
+                title = data.get("title", "media").strip()
+                source = data.get("source", "general")
                 thumbnail = data.get("thumbnail")
 
                 media_items = []
@@ -295,6 +399,10 @@ class DownloaderService:
                 best_cdn_url = None
                 audio_url = None
                 raw_audio_url = None
+                images = []
+
+                has_video = False
+                has_audio = False
 
                 for label, raw_media_url in raw_medias.items():
                     if not raw_media_url or not isinstance(raw_media_url, str) or raw_media_url.startswith("{{"):
@@ -302,22 +410,29 @@ class DownloaderService:
 
                     # Lam sach label (loai bo cac icon emoji khoi label)
                     clean_label = re.sub(r"[^\w\s-]", "", label).strip() or label
-                    is_audio = any(k in label.lower() for k in ["mp3", "audio", "âm thanh"])
-                    is_img = any(k in label.lower() for k in ["image", "ảnh", "photo"])
-
-                    ext = "mp3" if is_audio else ("jpg" if is_img else "mp4")
-                    media_type = "audio" if is_audio else ("image" if is_img else "video")
+                    media_type, ext = self.detect_media_type(label, raw_media_url)
 
                     direct_dl = self.generate_direct_link(raw_media_url, title, ext, disposition="attachment")
                     inline_stream = self.generate_direct_link(raw_media_url, title, ext, disposition="inline")
 
-                    if is_audio and not audio_url:
-                        audio_url = direct_dl
-                        raw_audio_url = raw_media_url
-                    elif not is_audio and not best_direct_url:
-                        best_direct_url = direct_dl
-                        best_stream_url = inline_stream
-                        best_cdn_url = raw_media_url
+                    if media_type == "video":
+                        has_video = True
+                        if not best_direct_url:
+                            best_direct_url = direct_dl
+                            best_stream_url = inline_stream
+                            best_cdn_url = raw_media_url
+                    elif media_type == "audio":
+                        has_audio = True
+                        if not audio_url:
+                            audio_url = direct_dl
+                            raw_audio_url = raw_media_url
+                    elif media_type == "image":
+                        images.append(direct_dl)
+                        # Neu khong co video, anh se la download_url mac dinh
+                        if not best_direct_url and not has_video:
+                            best_direct_url = direct_dl
+                            best_stream_url = inline_stream
+                            best_cdn_url = raw_media_url
 
                     media_items.append({
                         "type": media_type,
@@ -332,45 +447,23 @@ class DownloaderService:
                         "cdn_url": raw_media_url,
                     })
 
-                # Neu chua co audio rieng tu Phimtat, convert tu video MP4 sang MP3 va WAV
+                if not media_items:
+                    return None
+
+                # Xu ly Audio: TUYET DOI KHONG TAO AUDIO CHO ANH!
+                audio_wav_url = None
                 audio_headers = {"User-Agent": IOS_UA}
                 if "tiktok" in source.lower() or "tiktok" in url:
                     audio_headers["Referer"] = "https://www.tiktok.com/"
 
-                audio_source_for_convert = raw_audio_url or best_cdn_url
-                audio_wav_url = None
-
-                if audio_source_for_convert:
-                    if not audio_url:
-                        # Convert tu MP4 sang MP3
-                        audio_url = self.generate_direct_link(
-                            audio_source_for_convert, f"{title}_audio", "mp3",
-                            headers=audio_headers, disposition="attachment", convert_audio="mp3"
-                        )
-                        audio_mp3_stream = self.generate_direct_link(
-                            audio_source_for_convert, f"{title}_audio", "mp3",
-                            headers=audio_headers, disposition="inline", convert_audio="mp3"
-                        )
-                        media_items.append({
-                            "type": "audio",
-                            "label": "Audio MP3",
-                            "ext": "mp3",
-                            "quality": "192kbps",
-                            "width": None,
-                            "height": None,
-                            "bitrate": 192000,
-                            "download_url": audio_url,
-                            "stream_url": audio_mp3_stream,
-                            "cdn_url": audio_source_for_convert,
-                        })
-
-                    # Luon them ban WAV Lossless
+                # Truong hop 1: Da co audio rieng tu upstream
+                if has_audio and raw_audio_url:
                     audio_wav_url = self.generate_direct_link(
-                        audio_source_for_convert, f"{title}_audio", "wav",
+                        raw_audio_url, f"{title}_audio", "wav",
                         headers=audio_headers, disposition="attachment", convert_audio="wav"
                     )
                     audio_wav_stream = self.generate_direct_link(
-                        audio_source_for_convert, f"{title}_audio", "wav",
+                        raw_audio_url, f"{title}_audio", "wav",
                         headers=audio_headers, disposition="inline", convert_audio="wav"
                     )
                     media_items.append({
@@ -383,11 +476,54 @@ class DownloaderService:
                         "bitrate": None,
                         "download_url": audio_wav_url,
                         "stream_url": audio_wav_stream,
-                        "cdn_url": audio_source_for_convert,
+                        "cdn_url": raw_audio_url,
                     })
-
-                if not media_items:
-                    return None
+                # Truong hop 2: LA VIDEO va can convert sang MP3 + WAV
+                elif has_video and best_cdn_url:
+                    audio_url = self.generate_direct_link(
+                        best_cdn_url, f"{title}_audio", "mp3",
+                        headers=audio_headers, disposition="attachment", convert_audio="mp3"
+                    )
+                    audio_mp3_stream = self.generate_direct_link(
+                        best_cdn_url, f"{title}_audio", "mp3",
+                        headers=audio_headers, disposition="inline", convert_audio="mp3"
+                    )
+                    audio_wav_url = self.generate_direct_link(
+                        best_cdn_url, f"{title}_audio", "wav",
+                        headers=audio_headers, disposition="attachment", convert_audio="wav"
+                    )
+                    audio_wav_stream = self.generate_direct_link(
+                        best_cdn_url, f"{title}_audio", "wav",
+                        headers=audio_headers, disposition="inline", convert_audio="wav"
+                    )
+                    media_items.append({
+                        "type": "audio",
+                        "label": "Audio MP3",
+                        "ext": "mp3",
+                        "quality": "192kbps",
+                        "width": None,
+                        "height": None,
+                        "bitrate": 192000,
+                        "download_url": audio_url,
+                        "stream_url": audio_mp3_stream,
+                        "cdn_url": best_cdn_url,
+                    })
+                    media_items.append({
+                        "type": "audio",
+                        "label": "Audio WAV",
+                        "ext": "wav",
+                        "quality": "Lossless",
+                        "width": None,
+                        "height": None,
+                        "bitrate": None,
+                        "download_url": audio_wav_url,
+                        "stream_url": audio_wav_stream,
+                        "cdn_url": best_cdn_url,
+                    })
+                else:
+                    # Neu la Anh (Pinterest, album anh...): Khong co audio!
+                    audio_url = None
+                    audio_wav_url = None
 
                 direct_cover = self.generate_direct_link(thumbnail, f"{title}_cover", "jpg") if thumbnail else None
 
@@ -400,13 +536,13 @@ class DownloaderService:
                     "cover": direct_cover or thumbnail,
                     "duration": float(data.get("duration", 0.0)),
                     "download_url": best_direct_url or media_items[0]["download_url"],
-                    "stream_url": best_stream_url,
+                    "stream_url": best_stream_url or media_items[0]["stream_url"],
                     "cdn_url": best_cdn_url or raw_medias.get(list(raw_medias.keys())[0]),
-                    "is_video": any(m["type"] == "video" for m in media_items),
+                    "is_video": has_video,
                     "medias": media_items,
                     "audio_url": audio_url,
                     "audio_wav_url": audio_wav_url,
-                    "images": [],
+                    "images": images,
                     "original_url": url,
                 }
         except Exception as e:

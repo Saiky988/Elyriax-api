@@ -178,6 +178,7 @@ fastapi_app.include_router(render_router, prefix="/api/v1", tags=["Rendering"])
 # ----------------------------------------------------
 # Migrated Elyriax API Routers (prefixed at /v1)
 # ----------------------------------------------------
+fastapi_app.include_router(downloader_router, prefix="/v1/downloader", tags=["Downloader"])
 fastapi_app.include_router(host_router, prefix="/v1/host", tags=["Host / System"])
 fastapi_app.include_router(auth_router, prefix="/v1/auth", tags=["Auth"])
 fastapi_app.include_router(settings_router, prefix="/v1/settings", tags=["Settings"])

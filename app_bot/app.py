@@ -25,26 +25,23 @@ class UniversalBot(commands.Bot):
                 except Exception as e:
                     logger.error(f"Failed to load {module_name}: {e}")
 
-        # 1. Đồng bộ Slash Commands toàn cầu (Global Sync)
+        # Đồng bộ Slash Commands toàn cầu (Global Sync)
         try:
             synced = await self.tree.sync()
             logger.info(f"Successfully synced {len(synced)} global slash commands.")
         except Exception as e:
             logger.error(f"Failed to sync global slash commands: {e}")
 
-        # 2. Đồng bộ tức thì cho Guild chính (nếu có cấu hình GUILD_ID) để hiện lệnh ngay không bị delay cache của Discord
-        guild_id = os.getenv("GUILD_ID")
-        if guild_id and guild_id.strip():
-            try:
-                guild_obj = discord.Object(id=int(guild_id.strip()))
-                self.tree.copy_global_to(guild=guild_obj)
-                synced_guild = await self.tree.sync(guild=guild_obj)
-                logger.info(f"Successfully synced {len(synced_guild)} guild slash commands for guild {guild_id}.")
-            except Exception as e:
-                logger.error(f"Failed to sync guild slash commands: {e}")
-
     async def on_ready(self):
         logger.info(f"Bot connected as: {self.user} (ID: {self.user.id})")
+        # Đồng bộ tức thì tới tất cả các Guild mà Bot đang tham gia để lệnh hiện ngay lập tức
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                synced_guild = await self.tree.sync(guild=guild)
+                logger.info(f"Instant synced {len(synced_guild)} slash commands to guild: {guild.name} ({guild.id})")
+            except Exception as e:
+                logger.error(f"Failed to sync commands to guild {guild.name} ({guild.id}): {e}")
 
 
 bot = UniversalBot()

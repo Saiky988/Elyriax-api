@@ -37,11 +37,18 @@ class BotSubPipeline:
         self.transcription_service = TranscriptionService()
         self.translation_service = TranslationService()
 
-    async def process_file_to_srt(self, file_bytes: bytes, filename: str) -> PipelineMetrics:
-        temp_dir = Path(tempfile.mkdtemp(prefix="vietsub_runtime_"))
+    async def process_file_to_srt(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        translate: bool = True,
+    ) -> PipelineMetrics:
+        prefix = "vietsub_runtime_" if translate else "raw_srt_runtime_"
+        temp_dir = Path(tempfile.mkdtemp(prefix=prefix))
         input_file = temp_dir / filename
         audio_file = temp_dir / "extracted_audio.mp3"
-        srt_file = temp_dir / f"{Path(filename).stem}_vietsub.srt"
+        suffix = "_vietsub" if translate else ""
+        srt_file = temp_dir / f"{Path(filename).stem}{suffix}.srt"
 
         with open(input_file, "wb") as f:
             f.write(file_bytes)
@@ -53,14 +60,18 @@ class BotSubPipeline:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise ValueError("Không thể tách âm thanh hoặc nhận diện được giọng nói hợp lệ.")
 
-        segments_input = [
-            Segment(id=s.id, start=s.start, end=s.end, text=s.text)
-            for s in transcription_res.segments
-        ]
-        translation_res = await self.translation_service.translate(segments_input)
+        if translate:
+            segments_input = [
+                Segment(id=s.id, start=s.start, end=s.end, text=s.text)
+                for s in transcription_res.segments
+            ]
+            translation_res = await self.translation_service.translate(segments_input)
+            final_segments = translation_res.segments
+        else:
+            final_segments = transcription_res.segments
 
         srt_lines = []
-        for idx, seg in enumerate(translation_res.segments, start=1):
+        for idx, seg in enumerate(final_segments, start=1):
             start_str = format_srt_time(seg.start)
             end_str = format_srt_time(seg.end)
             text_clean = seg.text.strip().replace("\r\n", " ").replace("\n", " ")
@@ -72,9 +83,9 @@ class BotSubPipeline:
         return PipelineMetrics(
             srt_path=srt_file,
             temp_dir=str(temp_dir),
-            segment_count=len(translation_res.segments),
+            segment_count=len(final_segments),
             audio_duration=getattr(transcription_res, "duration", 0.0),
-            detected_language=getattr(transcription_res, "language", "Chinese")
+            detected_language=getattr(transcription_res, "language", "Unknown"),
         )
 
 

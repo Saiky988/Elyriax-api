@@ -1,11 +1,12 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from app_bot.services.guild_settings import (
+    DEFAULT_GUILD_CONFIG,
     build_leave_embed,
     build_welcome_embed,
     format_placeholders,
@@ -16,12 +17,82 @@ from app_bot.services.guild_settings import (
 logger = logging.getLogger("GuildManage")
 
 
-def check_admin_perm(interaction: discord.Interaction) -> bool:
-    """Kiểm tra quyền Manage Guild hoặc Administrator của người dùng."""
-    if not interaction.guild or not isinstance(interaction.user, discord.Member):
+def check_admin_perm(obj: Union[discord.Interaction, commands.Context]) -> bool:
+    """Kiểm tra quyền Manage Guild hoặc Administrator của người dùng (Chủ server luôn được phép)."""
+    guild = getattr(obj, "guild", None)
+    user = getattr(obj, "user", None) or getattr(obj, "author", None)
+
+    if not guild or not isinstance(user, discord.Member):
         return False
-    perms = interaction.user.guild_permissions
+
+    # Chủ sở hữu máy chủ (Server Owner) luôn có toàn quyền
+    if guild.owner_id == user.id:
+        return True
+
+    perms = user.guild_permissions
     return perms.manage_guild or perms.administrator
+
+
+def build_guild_status_embed(guild: discord.Guild, cfg: dict) -> discord.Embed:
+    """Tạo bảng Embed tổng hợp cài đặt của Guild."""
+    w_status = "ĐANG BẬT" if cfg.get("welcome_enabled") else "ĐÃ TẮT"
+    w_ch = f"<#{cfg.get('welcome_channel_id')}>" if cfg.get("welcome_channel_id") else "*Chưa thiết lập*"
+    w_mode = "Embed Chuyên Nghiệp" if cfg.get("welcome_embed") else "Văn Bản Thường"
+
+    l_status = "ĐANG BẬT" if cfg.get("leave_enabled") else "ĐÃ TẮT"
+    l_ch = f"<#{cfg.get('leave_channel_id')}>" if cfg.get("leave_channel_id") else "*Chưa thiết lập*"
+    l_mode = "Embed Chuyên Nghiệp" if cfg.get("leave_embed") else "Văn Bản Thường"
+
+    ar_status = "ĐANG BẬT" if cfg.get("autorole_enabled") else "ĐÃ TẮT"
+    ar_role = f"<@&{cfg.get('autorole_id')}>" if cfg.get("autorole_id") else "*Chưa thiết lập*"
+
+    embed = discord.Embed(
+        title=f"BẢNG CẤU HÌNH MÁY CHỦ • {guild.name.upper()}",
+        description="Tổng hợp trạng thái các tính năng tự động hóa trên server.",
+        color=0x38BDF8,
+    )
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    embed.add_field(
+        name="Hệ Thống Chào Mừng (Welcome)",
+        value=(
+            f"• **Trạng thái:** `{w_status}`\n"
+            f"• **Kênh gửi:** {w_ch}\n"
+            f"• **Định dạng:** `{w_mode}`\n"
+            f"• **Lời chào:** {cfg.get('welcome_message')}"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Hệ Thống Tạm Biệt (Leave)",
+        value=(
+            f"• **Trạng thái:** `{l_status}`\n"
+            f"• **Kênh gửi:** {l_ch}\n"
+            f"• **Định dạng:** `{l_mode}`\n"
+            f"• **Lời tạm biệt:** {cfg.get('leave_message')}"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Tự Động Cấp Vai Trò (Auto-Role)",
+        value=(
+            f"• **Trạng thái:** `{ar_status}`\n"
+            f"• **Vai trò cấp:** {ar_role}"
+        ),
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Các biến động hỗ trợ trong lời nhắn",
+        value="`{user}`: Tag người dùng | `{user_name}`: Tên hiển thị | `{server}`: Tên server | `{member_count}`: Số thành viên",
+        inline=False,
+    )
+
+    embed.set_footer(text="Gõ /setup hoặc !setup để tùy chỉnh")
+    return embed
 
 
 class GuildManageCog(commands.Cog, name="GuildManagement"):
@@ -102,7 +173,6 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
     setup_group = app_commands.Group(
         name="setup",
         description="Quản lý và cấu hình máy chủ (Welcome, Leave, AutoRole)",
-        default_permissions=discord.Permissions(manage_guild=True),
     )
 
     @setup_group.command(name="view", description="Xem toàn bộ cấu hình hiện tại của máy chủ")
@@ -111,66 +181,8 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
             await interaction.response.send_message("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.", ephemeral=True)
             return
 
-        guild = interaction.guild
-        cfg = get_guild_settings(guild.id)
-
-        w_status = "ĐANG BẬT" if cfg.get("welcome_enabled") else "ĐÃ TẮT"
-        w_ch = f"<#{cfg.get('welcome_channel_id')}>" if cfg.get("welcome_channel_id") else "*Chưa thiết lập*"
-        w_mode = "Embed Chuyên Nghiệp" if cfg.get("welcome_embed") else "Văn Bản Thường"
-
-        l_status = "ĐANG BẬT" if cfg.get("leave_enabled") else "ĐÃ TẮT"
-        l_ch = f"<#{cfg.get('leave_channel_id')}>" if cfg.get("leave_channel_id") else "*Chưa thiết lập*"
-        l_mode = "Embed Chuyên Nghiệp" if cfg.get("leave_embed") else "Văn Bản Thường"
-
-        ar_status = "ĐANG BẬT" if cfg.get("autorole_enabled") else "ĐÃ TẮT"
-        ar_role = f"<@&{cfg.get('autorole_id')}>" if cfg.get("autorole_id") else "*Chưa thiết lập*"
-
-        embed = discord.Embed(
-            title=f"BẢNG CẤU HÌNH MÁY CHỦ • {guild.name.upper()}",
-            description="Tổng hợp trạng thái các tính năng tự động hóa trên server.",
-            color=0x38BDF8,
-        )
-        if guild.icon:
-            embed.set_thumbnail(url=guild.icon.url)
-
-        embed.add_field(
-            name="Hệ Thống Chào Mừng (Welcome)",
-            value=(
-                f"• **Trạng thái:** `{w_status}`\n"
-                f"• **Kênh gửi:** {w_ch}\n"
-                f"• **Định dạng:** `{w_mode}`\n"
-                f"• **Lời chào:** {cfg.get('welcome_message')}"
-            ),
-            inline=False,
-        )
-
-        embed.add_field(
-            name="Hệ Thống Tạm Biệt (Leave)",
-            value=(
-                f"• **Trạng thái:** `{l_status}`\n"
-                f"• **Kênh gửi:** {l_ch}\n"
-                f"• **Định dạng:** `{l_mode}`\n"
-                f"• **Lời tạm biệt:** {cfg.get('leave_message')}"
-            ),
-            inline=False,
-        )
-
-        embed.add_field(
-            name="Tự Động Cấp Vai Trò (Auto-Role)",
-            value=(
-                f"• **Trạng thái:** `{ar_status}`\n"
-                f"• **Vai trò cấp:** {ar_role}"
-            ),
-            inline=False,
-        )
-
-        embed.add_field(
-            name="Các biến động hỗ trợ",
-            value="`{user}`: Tag người dùng | `{user_name}`: Tên hiển thị | `{server}`: Tên server | `{member_count}`: Số thành viên",
-            inline=False,
-        )
-
-        embed.set_footer(text="Sử dụng /setup welcome, /setup leave hoặc /setup autorole để tùy chỉnh")
+        cfg = get_guild_settings(interaction.guild_id)
+        embed = build_guild_status_embed(interaction.guild, cfg)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @setup_group.command(name="welcome", description="Cấu hình hệ thống chào mừng thành viên mới")
@@ -272,7 +284,6 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
             await interaction.response.send_message("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.", ephemeral=True)
             return
 
-        # Kiểm tra vị trí role so với bot
         if role >= interaction.guild.me.top_role:
             await interaction.response.send_message(
                 f"Vai trò {role.mention} nằm cao hơn hoặc bằng vị trí vai trò của Bot. "
@@ -303,7 +314,6 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
             await interaction.response.send_message("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.", ephemeral=True)
             return
 
-        from app_bot.services.guild_settings import DEFAULT_GUILD_CONFIG
         update_guild_settings(interaction.guild_id, dict(DEFAULT_GUILD_CONFIG))
 
         embed = discord.Embed(
@@ -319,7 +329,6 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
     welcome_group = app_commands.Group(
         name="welcome",
         description="Lệnh điều khiển nhanh tính năng chào mừng thành viên mới",
-        default_permissions=discord.Permissions(manage_guild=True),
     )
 
     @welcome_group.command(name="test", description="Gửi tin nhắn chào mừng thử nghiệm để xem trước")
@@ -394,7 +403,6 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
     leave_group = app_commands.Group(
         name="leave",
         description="Lệnh điều khiển nhanh tính năng thông báo thành viên rời máy chủ",
-        default_permissions=discord.Permissions(manage_guild=True),
     )
 
     @leave_group.command(name="test", description="Gửi tin nhắn tạm biệt thử nghiệm để xem trước")
@@ -462,6 +470,76 @@ class GuildManageCog(commands.Cog, name="GuildManagement"):
         update_guild_settings(interaction.guild_id, {"leave_embed": use_embed})
         mode_text = "Embed chuyên nghiệp" if use_embed else "Tin nhắn văn bản thuần"
         await interaction.response.send_message(f"Đã đổi định dạng thông báo rời đi sang: **{mode_text}**.", ephemeral=True)
+
+    # ----------------------------------------------------
+    # Prefix Commands: !setup, !welcome, !leave
+    # ----------------------------------------------------
+    @commands.command(name="setup")
+    async def cmd_setup_prefix(self, ctx: commands.Context, action: str = "view", *, args: str = ""):
+        """Lệnh prefix: !setup [view|reset]"""
+        if not check_admin_perm(ctx):
+            await ctx.reply("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.")
+            return
+
+        cfg = get_guild_settings(ctx.guild.id)
+        action_lower = action.lower().strip()
+
+        if action_lower in ["view", "status", "info"]:
+            embed = build_guild_status_embed(ctx.guild, cfg)
+            await ctx.reply(embed=embed)
+        elif action_lower in ["reset"]:
+            update_guild_settings(ctx.guild.id, dict(DEFAULT_GUILD_CONFIG))
+            await ctx.reply("Đã khôi phục toàn bộ cấu hình máy chủ về mặc định.")
+        else:
+            await ctx.reply("Sử dụng `/setup view` hoặc `!setup view` để xem cài đặt máy chủ.")
+
+    @commands.command(name="welcome")
+    async def cmd_welcome_prefix(self, ctx: commands.Context, action: str = "test"):
+        """Lệnh prefix: !welcome [test|toggle]"""
+        if not check_admin_perm(ctx):
+            await ctx.reply("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.")
+            return
+
+        cfg = get_guild_settings(ctx.guild.id)
+        action_lower = action.lower().strip()
+
+        if action_lower == "test":
+            if cfg.get("welcome_embed", True):
+                embed = build_welcome_embed(ctx.author, cfg)
+                await ctx.reply(content=f"*(Bản xem trước test welcome)*\n{ctx.author.mention}", embed=embed)
+            else:
+                msg = format_placeholders(cfg.get("welcome_message", ""), ctx.author, ctx.guild)
+                await ctx.reply(f"*(Bản xem trước test welcome)*\n{msg}")
+        elif action_lower in ["toggle", "on", "off"]:
+            new_state = not cfg.get("welcome_enabled", False) if action_lower == "toggle" else (action_lower == "on")
+            update_guild_settings(ctx.guild.id, {"welcome_enabled": new_state})
+            await ctx.reply(f"Đã {'BẬT' if new_state else 'TẮT'} hệ thống chào mừng.")
+        else:
+            await ctx.reply("Sử dụng `/welcome test` hoặc `!welcome test` để xem trước tin nhắn chào mừng.")
+
+    @commands.command(name="leave")
+    async def cmd_leave_prefix(self, ctx: commands.Context, action: str = "test"):
+        """Lệnh prefix: !leave [test|toggle]"""
+        if not check_admin_perm(ctx):
+            await ctx.reply("Bạn cần quyền **Quản Lý Máy Chủ** để dùng lệnh này.")
+            return
+
+        cfg = get_guild_settings(ctx.guild.id)
+        action_lower = action.lower().strip()
+
+        if action_lower == "test":
+            if cfg.get("leave_embed", True):
+                embed = build_leave_embed(ctx.author, cfg)
+                await ctx.reply(content="*(Bản xem trước test leave)*", embed=embed)
+            else:
+                msg = format_placeholders(cfg.get("leave_message", ""), ctx.author, ctx.guild)
+                await ctx.reply(f"*(Bản xem trước test leave)*\n{msg}")
+        elif action_lower in ["toggle", "on", "off"]:
+            new_state = not cfg.get("leave_enabled", False) if action_lower == "toggle" else (action_lower == "on")
+            update_guild_settings(ctx.guild.id, {"leave_enabled": new_state})
+            await ctx.reply(f"Đã {'BẬT' if new_state else 'TẮT'} thông báo thành viên rời máy chủ.")
+        else:
+            await ctx.reply("Sử dụng `/leave test` hoặc `!leave test` để xem trước tin nhắn tạm biệt.")
 
 
 async def setup(bot: commands.Bot):

@@ -323,3 +323,4 @@ class MCBuildCog(commands.Cog, name="Minecraft"):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(MCBuildCog(bot))
+

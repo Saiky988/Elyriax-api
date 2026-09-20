@@ -100,13 +100,13 @@ def create_media_embed(data: dict, requested_by: discord.User) -> discord.Embed:
             inline=False,
         )
 
-    # Hien thi Preview (Cover / Thumbnail / Image)
+    # Hien thi Preview dang Thumbnail nho (Cover / Thumbnail)
     cover_url = data.get("cover")
     download_url = data.get("download_url")
     preview_url = download_url if (not is_video and download_url) else cover_url
 
     if preview_url:
-        embed.set_image(url=preview_url)
+        embed.set_thumbnail(url=preview_url)
 
     embed.set_footer(
         text=f"Elyriax Media Downloader • Yêu cầu bởi {requested_by.display_name}",

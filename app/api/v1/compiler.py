@@ -31,6 +31,7 @@ async def execute_python_code(payload: CodeExecutionRequest):
 
     docker_cmd = [
         "docker", "run", "--rm", "-i",
+        "--security-opt", "apparmor=unconfined",
         "--network", "none",
         "--memory", "128m",
         "--cpus", "0.5",

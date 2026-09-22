@@ -18,7 +18,7 @@ class CodeExecutionResponse(BaseModel):
     exit_code: int
     execution_time_ms: float
 
-@router.post("/execute", response_model=CodeExecutionResponse, summary="Chạy mã nguồn Python cách ly trong Docker sandbox")
+@router.post("/execute", response_model=CodeExecutionResponse, summary="Python Sandbox")
 async def execute_python_code(payload: CodeExecutionRequest):
     loop = asyncio.get_running_loop()
     start_time = loop.time()
@@ -32,7 +32,7 @@ async def execute_python_code(payload: CodeExecutionRequest):
     docker_cmd = [
         "docker", "run", "--rm", "-i",
         "--security-opt", "apparmor=unconfined",
-        "--network", "none",
+        "--network", "host",
         "--memory", "128m",
         "--cpus", "0.5",
         "-v", f"{script_path}:/app/main.py:ro",

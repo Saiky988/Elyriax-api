@@ -63,6 +63,9 @@ from app.api.v1.evn import router as evn_router
 from app.api.v1.go import router as go_router
 from app.api.v1.file_up import router as file_up_router
 
+# Python Online Sandbox Router
+from app.api.v1.compiler import router as compiler_router
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("Main")
 
@@ -70,26 +73,22 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Initialize Async MySQL Connection Pool
     try:
         await init_db_pool()
         logger.info("[Database] MySQL Connection Pool initialized.")
     except Exception as e:
         logger.warning(f"[Database] Could not connect to MySQL pool at startup: {e}")
 
-    # 2. Start Profile Cache loop
     try:
         start_profile_cache()
     except Exception as e:
         logger.error(f"[ProfileCache] Start failed: {e}")
 
-    # 3. Start Genshin and System Schedulers
     try:
         start_schedulers()
     except Exception as e:
         logger.error(f"[Scheduler] Start failed: {e}")
 
-    # 4. Background cleanup loop for Vietsub jobs
     async def cleanup_loop():
         while True:
             try:
@@ -102,7 +101,6 @@ async def lifespan(app: FastAPI):
 
     cleanup_task = asyncio.create_task(cleanup_loop())
 
-    # 5. Background task for Realtime System Metrics via Socket.IO
     async def metrics_emitter():
         while True:
             try:
@@ -118,7 +116,6 @@ async def lifespan(app: FastAPI):
 
     metrics_task = asyncio.create_task(metrics_emitter())
 
-    # 6. Discord Bot
     bot_token = os.getenv("DISCORD_BOT_TOKEN")
     bot_task = None
     if bot_token:
@@ -128,7 +125,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown
     cleanup_task.cancel()
     metrics_task.cancel()
     if bot_task:
@@ -149,14 +145,12 @@ fastapi_app = FastAPI(
     lifespan=lifespan
 )
 
-# Latency tracking middleware
 @fastapi_app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     request.state.start_time = time.time()
     response = await call_next(request)
     return response
 
-# CORS Configuration
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -166,18 +160,12 @@ fastapi_app.add_middleware(
     expose_headers=["Content-Range", "Content-Length", "Accept-Ranges"]
 )
 
-# ----------------------------------------------------
-# Vietsub Studio Routers (prefixed at /api/v1)
-# ----------------------------------------------------
 fastapi_app.include_router(downloader_router, prefix="/api/v1/downloader", tags=["Downloader"])
 fastapi_app.include_router(transcribe_router, prefix="/api/v1", tags=["Transcription"])
 fastapi_app.include_router(translate_router, prefix="/api/v1", tags=["Translation"])
 fastapi_app.include_router(subtitle_router, prefix="/api/v1", tags=["Subtitles"])
 fastapi_app.include_router(render_router, prefix="/api/v1", tags=["Rendering"])
 
-# ----------------------------------------------------
-# Migrated Elyriax API Routers (prefixed at /v1)
-# ----------------------------------------------------
 fastapi_app.include_router(downloader_router, prefix="/v1/downloader", tags=["Downloader"])
 fastapi_app.include_router(host_router, prefix="/v1/host", tags=["Host / System"])
 fastapi_app.include_router(auth_router, prefix="/v1/auth", tags=["Auth"])
@@ -201,7 +189,9 @@ fastapi_app.include_router(evn_router, prefix="/v1/evn", tags=["EVN Power Outage
 fastapi_app.include_router(go_router, tags=["Go Redirects"])
 fastapi_app.include_router(file_up_router, tags=["File Uploads & Auto Build"])
 
-# Wrap FastAPI with Socket.IO ASGIApp
+# Tích hợp Endpoint Python Sandbox Execution
+fastapi_app.include_router(compiler_router, prefix="/v1/python", tags=["Python Sandbox"])
+
 app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
 
 if __name__ == "__main__":

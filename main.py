@@ -195,5 +195,5 @@ fastapi_app.include_router(compiler_router, prefix="/v1/python", tags=["Python S
 app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 25243))
+    port = int(os.getenv("PORT", 23091))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
